@@ -15,7 +15,17 @@ from jsonschema import validate, ValidationError
 from core import AppenCorrect
 from api_auth import require_api_key, track_api_usage, get_api_key_manager
 from auth import require_auth, authenticate_user, create_session, logout_user, render_login_page, is_authenticated, create_user, render_forgot_password_page, render_reset_password_page, generate_password_reset_token, verify_reset_token, reset_password_with_token
-from email_service import send_password_reset_email, test_email_configuration
+
+# Email service is optional - not needed for core text correction
+try:
+    from email_service import send_password_reset_email, test_email_configuration
+    EMAIL_SERVICE_AVAILABLE = True
+except ImportError:
+    EMAIL_SERVICE_AVAILABLE = False
+    def send_password_reset_email(*args, **kwargs):
+        return False
+    def test_email_configuration():
+        return False, "Email service not configured"
 
 # Configure logging
 logger = logging.getLogger(__name__)
