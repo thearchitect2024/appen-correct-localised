@@ -1,0 +1,16 @@
+apiVersion: v2
+name: appencorrect
+description: A Helm chart for AppenCorrect application
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - appencorrect
+  - grammar
+  - correction
+home: https://github.com/your-org/AppenCorrect
+sources:
+  - https://github.com/your-org/AppenCorrect
+maintainers:
+  - name: AppenCorrect Team
+    email: team@appencorrect.com

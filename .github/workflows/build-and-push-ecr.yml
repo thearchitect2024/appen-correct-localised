@@ -1,0 +1,81 @@
+name: Build and Push to ECR
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: sapling
+  ECR_REGISTRY: 411719562396.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: Build and tag Docker image
+      env:
+        ECR_REGISTRY: 411719562396.dkr.ecr.us-east-1.amazonaws.com
+        ECR_REPOSITORY: sapling
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+    
+    - name: Push image to Amazon ECR
+      env:
+        ECR_REGISTRY: 411719562396.dkr.ecr.us-east-1.amazonaws.com
+        ECR_REPOSITORY: sapling
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+    - name: Update Helm chart values.yaml
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Update the image tag in values.yaml
+        sed -i "s/tag: \".*\"/tag: \"$IMAGE_TAG\"/" helm-charts/appencorrect/values.yaml
+        
+        # Verify the change
+        echo "Updated image tag to: $IMAGE_TAG"
+        grep "tag:" helm-charts/appencorrect/values.yaml
+
+    - name: Commit and push Helm chart updates
+      if: github.event_name != 'pull_request'  # Skip for PRs
+      run: |
+       git config --local user.email "action@github.com"
+       git config --local user.name "GitHub Action"
+       git add helm-charts/appencorrect/values.yaml
+    
+       if git diff --staged --quiet; then
+          echo "No changes to commit"
+       else
+          git commit -m "Update Helm chart image tag to ${{ github.sha }}"
+          git push origin ${{ github.ref_name }}
+       fi

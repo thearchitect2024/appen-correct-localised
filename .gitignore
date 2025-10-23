@@ -1,0 +1,16 @@
+api_keys.db
+appencorrect_users.db
+
+# Log files
+**/appencorrect.log
+appencorrect.log
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+__pycache__/api_auth.cpython-39.pyc
+__pycache__/api.cpython-39.pyc
+logs/appencorrect copy 2.log
+api.py.backup
+logs/waitress.log
