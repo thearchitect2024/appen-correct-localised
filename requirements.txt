@@ -6,12 +6,11 @@ python-dotenv==1.0.0
 jsonschema==4.20.0
 sendgrid==6.10.0
 
-# vLLM for local GPU inference (REQUIRED)
-vllm==0.6.3
-# Note: flash-attn must be installed separately with: pip install flash-attn --no-build-isolation
-# flash-attn==2.6.3  # Install manually with --no-build-isolation flag
-transformers>=4.45.0
-torch>=2.1.0
+# Text-Generation-Inference client for local GPU inference (REQUIRED)
+text-generation>=0.7.0
+aiohttp>=3.9.0  # Required by text-generation client
+transformers>=4.45.0  # For model loading
+torch>=2.1.0  # For GPU inference
 pyngrok==7.0.1  # For SageMaker testing with public URLs
 
 # Redis/Valkey cache support

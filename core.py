@@ -42,12 +42,12 @@ except ImportError:
     LANGDETECT_AVAILABLE = False
 
 try:
-    from vllm_client import create_vllm_client
-    VLLM_AVAILABLE = True
+    from tgi_client import create_tgi_client
+    TGI_AVAILABLE = True
 except ImportError:
-    VLLM_AVAILABLE = False
-    create_vllm_client = None
-    raise ImportError("vLLM client module is required. Install with: pip install vllm")
+    TGI_AVAILABLE = False
+    create_tgi_client = None
+    raise ImportError("TGI client module is required. Install text-generation library")
 
 
 @dataclass
@@ -57,7 +57,7 @@ class Correction:
     position: Tuple[int, int]  # (start, end)
     original: str
     suggestion: str
-    source: str  # 'vllm'
+    source: str  # 'tgi'
     
     def to_dict(self):
         """Convert correction to dictionary for JSON serialization."""
@@ -170,15 +170,15 @@ class AppenCorrect:
     AI-first AppenCorrect implementation with language detection and language-specific rules.
     """
     
-    def __init__(self, language='en_US', vllm_url=None, vllm_model=None,
+    def __init__(self, language='en_US', tgi_url=None, tgi_model=None,
                  language_detector='langdetect', custom_instructions=None):
         """
-        Initialize AppenCorrect with vLLM local GPU inference.
+        Initialize AppenCorrect with TGI local GPU inference.
         
         Args:
             language: Language code (e.g. 'en_US', 'es_ES') - kept for compatibility
-            vllm_url: vLLM server URL (default: http://localhost:8000 or from VLLM_URL env)
-            vllm_model: vLLM model name (default: Qwen/Qwen2.5-7B-Instruct or from VLLM_MODEL env)
+            tgi_url: TGI server URL (default: http://localhost:8080 or from TGI_URL env)
+            tgi_model: TGI model name (default: Qwen/Qwen2.5-7B-Instruct or from TGI_MODEL env)
             language_detector: Language detection library to use ('lingua', 'langdetect', or 'disabled')
             custom_instructions: Optional custom instructions for specific use cases
         """
@@ -190,21 +190,21 @@ class AppenCorrect:
         # Initialize custom instructions
         self.custom_instructions = custom_instructions or {}
         
-        # Initialize vLLM client (REQUIRED)
-        if not VLLM_AVAILABLE:
-            raise RuntimeError("vLLM client module not available. Install with: pip install vllm")
+        # Initialize TGI client (REQUIRED)
+        if not TGI_AVAILABLE:
+            raise RuntimeError("TGI client module not available. Install text-generation library")
         
         try:
-            self.vllm_client = create_vllm_client(
-                base_url=vllm_url or os.getenv('VLLM_URL', 'http://localhost:8000'),
-                model=vllm_model or os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-7B-Instruct')
+            self.tgi_client = create_tgi_client(
+                base_url=tgi_url or os.getenv('TGI_URL', 'http://localhost:8080'),
+                model=tgi_model or os.getenv('TGI_MODEL', 'Qwen/Qwen2.5-7B-Instruct')
             )
-            self.api_type = 'vllm'
-            self.selected_model = self.vllm_client.model
-            self.logger.info(f"✓ vLLM client initialized - URL: {self.vllm_client.base_url}, Model: {self.selected_model}")
+            self.api_type = 'tgi'
+            self.selected_model = self.tgi_client.model
+            self.logger.info(f"✓ TGI client initialized - URL: {self.tgi_client.base_url}, Model: {self.selected_model}")
         except Exception as e:
-            self.logger.error(f"Failed to initialize vLLM client: {e}")
-            raise RuntimeError(f"vLLM initialization failed: {e}. Ensure vLLM server is running at {vllm_url or os.getenv('VLLM_URL', 'http://localhost:8000')}")
+            self.logger.error(f"Failed to initialize TGI client: {e}")
+            raise RuntimeError(f"TGI initialization failed: {e}. Ensure TGI server is running at {tgi_url or os.getenv('TGI_URL', 'http://localhost:8080')}")
         
         self.language_detector = language_detector
         
@@ -225,11 +225,11 @@ class AppenCorrect:
         
         # Test vLLM connection
         self.api_unavailable_reason = None
-        self.api_available = self.vllm_client.test_connection()
+        self.api_available = self.tgi_client.test_connection()
         if not self.api_available:
-            self.api_unavailable_reason = f"vLLM server not reachable at {self.vllm_client.base_url}"
+            self.api_unavailable_reason = f"vLLM server not reachable at {self.tgi_client.base_url}"
             self.logger.error(f"vLLM server unavailable: {self.api_unavailable_reason}")
-            raise RuntimeError(f"Cannot connect to vLLM server at {self.vllm_client.base_url}. Start it with: ./start_vllm_server.sh")
+            raise RuntimeError(f"Cannot connect to vLLM server at {self.tgi_client.base_url}. Start it with: ./start_vllm_server.sh")
         
         if self.api_available:
             self.logger.info(f"{self.api_type.upper()} API connection successful - Model: {self.selected_model}")
@@ -246,7 +246,7 @@ class AppenCorrect:
         # Statistics tracking
         self.stats = {
             'total_processed': 0,
-            'vllm_corrections': 0,
+            'tgi_corrections': 0,
             'cache_hits': 0,
             'language_detections': 0
         }
@@ -657,7 +657,7 @@ class AppenCorrect:
         # Update statistics
         self.stats['total_processed'] += 1
         if all_corrections:
-            self.stats['vllm_corrections'] += 1
+            self.stats['tgi_corrections'] += 1
         
         # Prepare response
         result = {
@@ -864,10 +864,10 @@ If no spelling errors: {"corrected_text": "[original text]", "corrections": []}"
             user_message = f"Check this text for spelling errors only:\n\n{text}"
             
             # Call AI API
-            if self.api_type == 'vllm':
+            if self.api_type == 'tgi':
                 # Use vLLM for local inference
                 prompt = f"{system_message}\n\n{user_message}"
-                generated_text = self.vllm_client.generate(
+                generated_text = self.tgi_client.generate(
                     prompt=prompt,
                     max_tokens=1000,
                     temperature=0.2
@@ -1026,10 +1026,10 @@ Only flag actual mistakes, never valid regional variants."""
             user_message = f"Fix all errors in this text:\n\n{text}"
             
             # Call appropriate API based on selected model
-            if self.api_type == 'vllm':
-                self.logger.debug(f"🤖 Calling vLLM - Model: {self.vllm_client.model}, Language: {detected_language or 'unknown'}")
+            if self.api_type == 'tgi':
+                self.logger.debug(f"🤖 Calling vLLM - Model: {self.tgi_client.model}, Language: {detected_language or 'unknown'}")
                 prompt = f"{system_message}\n\n{user_message}"
-                generated_text = self.vllm_client.generate(
+                generated_text = self.tgi_client.generate(
                     prompt=prompt,
                     max_tokens=1024,
                     temperature=0.2
@@ -1472,7 +1472,7 @@ Only flag actual mistakes, never valid regional variants."""
         """Get current processing statistics."""
         return {
             'total_processed': self.stats['total_processed'],
-            'vllm_corrections': self.stats['vllm_corrections'],
+            'tgi_corrections': self.stats['tgi_corrections'],
             'cache_hits': self.stats['cache_hits'],
             'language_detections': self.stats['language_detections'],
             'api_available': self.api_available,
@@ -1484,20 +1484,20 @@ Only flag actual mistakes, never valid regional variants."""
         }
     
     def get_api_status(self) -> Dict[str, Any]:
-        """Get detailed vLLM API status for debugging."""
+        """Get detailed TGI API status for debugging."""
         return {
-            'api_type': 'vllm',
+            'api_type': 'tgi',
             'available': self.api_available,
             'unavailable_reason': self.api_unavailable_reason,
-            'url': self.vllm_client.base_url if self.vllm_client else None,
+            'url': self.tgi_client.base_url if self.tgi_client else None,
             'model': self.selected_model,
-            'vllm_available': VLLM_AVAILABLE
+            'tgi_available': TGI_AVAILABLE
         }
     
     def clear_cache(self) -> None:
-        """Clear the vLLM API response cache."""
+        """Clear the TGI API response cache."""
         self.api_cache.clear()
-        self.logger.info("vLLM cache cleared")
+        self.logger.info("TGI cache cleared")
     
     def set_cache_enabled(self, enabled: bool) -> None:
         """Enable or disable caching for testing purposes."""
@@ -1652,9 +1652,9 @@ Return ONLY valid JSON:
                 return self.api_cache[cache_key]
             
             # Call vLLM for quality assessment
-            self.logger.debug(f"🎯 Calling vLLM for comment quality assessment - Model: {self.vllm_client.model}")
+            self.logger.debug(f"🎯 Calling vLLM for comment quality assessment - Model: {self.tgi_client.model}")
             prompt = f"{system_message}\n\n{user_message}"
-            generated_text = self.vllm_client.generate(
+            generated_text = self.tgi_client.generate(
                 prompt=prompt,
                 max_tokens=1024,
                 temperature=0.2

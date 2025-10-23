@@ -1,6 +1,6 @@
 """
-vLLM Client for AppenCorrect
-Replaces Gemini API with local vLLM inference
+TGI Client for AppenCorrect
+Replaces vLLM with Text-Generation-Inference (Hugging Face)
 """
 
 import json
@@ -12,22 +12,22 @@ from typing import Dict, List, Optional, Any
 logger = logging.getLogger(__name__)
 
 
-class VLLMClient:
-    """Client for vLLM inference server"""
+class TGIClient:
+    """Client for TGI (Text-Generation-Inference) server"""
     
     def __init__(
         self,
-        base_url: str = "http://localhost:8000",
+        base_url: str = "http://localhost:8080",
         model: str = "Qwen/Qwen2.5-7B-Instruct",
         timeout: int = 30,
         max_retries: int = 3
     ):
         """
-        Initialize vLLM client
+        Initialize TGI client
         
         Args:
-            base_url: vLLM server URL (e.g., http://localhost:8000)
-            model: Model name/path
+            base_url: TGI server URL (e.g., http://localhost:8080)
+            model: Model name/path (for reference, TGI loads model at startup)
             timeout: Request timeout in seconds
             max_retries: Maximum retry attempts
         """
@@ -35,22 +35,22 @@ class VLLMClient:
         self.model = model
         self.timeout = timeout
         self.max_retries = max_retries
-        self.endpoint = f"{self.base_url}/v1/completions"
+        self.endpoint = f"{self.base_url}/generate"
         
-        logger.info(f"VLLMClient initialized - URL: {self.base_url}, Model: {self.model}")
+        logger.info(f"TGIClient initialized - URL: {self.base_url}, Model: {self.model}")
     
     def test_connection(self) -> bool:
-        """Test vLLM server connection"""
+        """Test TGI server connection"""
         try:
             response = requests.get(f"{self.base_url}/health", timeout=5)
             if response.status_code == 200:
-                logger.info("✓ vLLM server connection successful")
+                logger.info("✓ TGI server connection successful")
                 return True
             else:
-                logger.warning(f"vLLM server returned status {response.status_code}")
+                logger.warning(f"TGI server returned status {response.status_code}")
                 return False
         except Exception as e:
-            logger.error(f"✗ vLLM server connection failed: {e}")
+            logger.error(f"✗ TGI server connection failed: {e}")
             return False
     
     def generate(
@@ -62,11 +62,11 @@ class VLLMClient:
         stop: Optional[List[str]] = None
     ) -> Optional[str]:
         """
-        Generate text using vLLM
+        Generate text using TGI
         
         Args:
             prompt: Input prompt
-            max_tokens: Maximum tokens to generate
+            max_tokens: Maximum tokens to generate (max_new_tokens in TGI)
             temperature: Sampling temperature (0.0 = deterministic)
             top_p: Nucleus sampling parameter
             stop: Stop sequences
@@ -75,17 +75,20 @@ class VLLMClient:
             Generated text or None on error
         """
         payload = {
-            "model": self.model,
-            "prompt": prompt,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "top_p": top_p,
-            "stop": stop or []
+            "inputs": prompt,
+            "parameters": {
+                "max_new_tokens": max_tokens,
+                "temperature": temperature,
+                "top_p": top_p,
+                "stop": stop or [],
+                "do_sample": temperature > 0,
+                "return_full_text": False
+            }
         }
         
         for attempt in range(1, self.max_retries + 1):
             try:
-                logger.info(f"Attempt {attempt} to call vLLM API")
+                logger.info(f"Attempt {attempt} to call TGI API")
                 start_time = time.time()
                 
                 response = requests.post(
@@ -99,21 +102,21 @@ class VLLMClient:
                 
                 if response.status_code == 200:
                     result = response.json()
-                    text = result["choices"][0]["text"].strip()
-                    logger.info(f"✓ vLLM response received in {elapsed:.2f}s")
+                    text = result["generated_text"].strip()
+                    logger.info(f"✓ TGI response received in {elapsed:.2f}s")
                     return text
                 else:
-                    logger.error(f"vLLM API error {response.status_code}: {response.text}")
+                    logger.error(f"TGI API error {response.status_code}: {response.text}")
                     
             except requests.exceptions.Timeout:
-                logger.warning(f"vLLM request timeout (attempt {attempt}/{self.max_retries})")
+                logger.warning(f"TGI request timeout (attempt {attempt}/{self.max_retries})")
                 if attempt == self.max_retries:
                     logger.error("Max retries exceeded - timeout")
                     return None
                 time.sleep(2 ** attempt)  # Exponential backoff
                 
             except Exception as e:
-                logger.error(f"vLLM API call failed (attempt {attempt}): {e}")
+                logger.error(f"TGI API call failed (attempt {attempt}): {e}")
                 if attempt == self.max_retries:
                     return None
                 time.sleep(2 ** attempt)
@@ -127,7 +130,7 @@ class VLLMClient:
         temperature: float = 0.2
     ) -> Optional[Dict[str, Any]]:
         """
-        Correct text using vLLM with structured output
+        Correct text using TGI with structured output
         
         Args:
             text: Text to correct
@@ -150,7 +153,7 @@ class VLLMClient:
         )
         
         if not response:
-            logger.error("No response from vLLM")
+            logger.error("No response from TGI")
             return None
         
         # Parse JSON response
@@ -159,7 +162,7 @@ class VLLMClient:
             result = self._parse_response(response)
             return result
         except Exception as e:
-            logger.error(f"Failed to parse vLLM response: {e}")
+            logger.error(f"Failed to parse TGI response: {e}")
             logger.debug(f"Raw response: {response}")
             return None
     
@@ -198,7 +201,7 @@ JSON Response:"""
         return prompt
     
     def _parse_response(self, response: str) -> Dict[str, Any]:
-        """Parse vLLM response and extract JSON"""
+        """Parse TGI response and extract JSON"""
         
         # Try to find JSON in response
         response = response.strip()
@@ -234,18 +237,18 @@ JSON Response:"""
         return result
 
 
-def create_vllm_client(base_url: str = None, model: str = None) -> VLLMClient:
+def create_tgi_client(base_url: str = None, model: str = None) -> TGIClient:
     """
-    Factory function to create vLLM client
+    Factory function to create TGI client
     
     Args:
-        base_url: vLLM server URL (default: http://localhost:8000)
+        base_url: TGI server URL (default: http://localhost:8080)
         model: Model name (default: Qwen/Qwen2.5-7B-Instruct)
     """
     import os
     
-    base_url = base_url or os.getenv("VLLM_URL", "http://localhost:8000")
-    model = model or os.getenv("VLLM_MODEL", "Qwen/Qwen2.5-7B-Instruct")
+    base_url = base_url or os.getenv("TGI_URL", "http://localhost:8080")
+    model = model or os.getenv("TGI_MODEL", "Qwen/Qwen2.5-7B-Instruct")
     
-    return VLLMClient(base_url=base_url, model=model)
+    return TGIClient(base_url=base_url, model=model)
 
