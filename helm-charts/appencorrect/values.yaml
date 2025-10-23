@@ -81,7 +81,8 @@ affinity: {}
 
 # Environment variables
 env:
-  GEMINI_API_KEY: "AIzaSyDqM27YJjuNd1f_gnylCsnqjvEijqLRX7c"
+  # SECURITY: DO NOT hardcode secrets! Use Kubernetes secrets instead
+  # GEMINI_API_KEY: ""  # Set via kubectl create secret or use secrets.yaml
   # Database configuration
   DATABASE_PATH: "/app/data/api_keys.db"
 
