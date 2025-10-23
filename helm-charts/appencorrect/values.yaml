@@ -5,10 +5,10 @@
 replicaCount: 3
 
 image:
-  repository: 411719562396.dkr.ecr.us-east-1.amazonaws.com/sapling
-  pullPolicy: Always
+  repository: appencorrect
+  pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "1a846cda4054a25a2ebd6f2055c30bb92ff5f14d"
+  tag: "latest"
 
 imagePullSecrets: []
 nameOverride: ""

@@ -43,9 +43,9 @@ The command removes all the Kubernetes components associated with the chart and 
 | Name                      | Description                                     | Value |
 | ------------------------- | ----------------------------------------------- | ----- |
 | `replicaCount`            | Number of AppenCorrect replicas to deploy      | `3` |
-| `image.repository`       | AppenCorrect image repository                   | `411719562396.dkr.ecr.us-east-1.amazonaws.com/sapling` |
-| `image.pullPolicy`        | AppenCorrect image pull policy                  | `Always` |
-| `image.tag`               | AppenCorrect image tag (immutable tags are recommended) | `0fa0b5b1a12a7a712d0c752a00acc0c617d5adb4` |
+| `image.repository`       | AppenCorrect image repository                   | `appencorrect` |
+| `image.pullPolicy`        | AppenCorrect image pull policy                  | `IfNotPresent` |
+| `image.tag`               | AppenCorrect image tag (immutable tags are recommended) | `latest` |
 
 ### Service parameters
 
