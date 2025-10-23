@@ -7,6 +7,14 @@ jsonschema==4.20.0
 google-genai==0.3.0
 sendgrid==6.10.0
 
+# vLLM for local GPU inference (optional - for self-hosted deployment)
+vllm==0.6.3
+# Note: flash-attn must be installed separately with: pip install flash-attn --no-build-isolation
+# flash-attn==2.6.3  # Install manually with --no-build-isolation flag
+transformers>=4.45.0
+torch>=2.1.0
+pyngrok==7.0.1  # For SageMaker testing with public URLs
+
 # Redis/Valkey cache support
 redis==5.0.1
 valkey==6.1.1

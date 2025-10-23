@@ -51,6 +51,13 @@ try:
 except ImportError:
     call_openai_api = None
 
+try:
+    from vllm_client import create_vllm_client
+    VLLM_AVAILABLE = True
+except ImportError:
+    VLLM_AVAILABLE = False
+    create_vllm_client = None
+
 
 @dataclass
 class Correction:
@@ -173,13 +180,17 @@ class AppenCorrect:
     """
     
     def __init__(self, language='en_US', gemini_api_key=None, gemini_model='gemini-2.5-flash-lite', 
-                 language_detector='langdetect', custom_instructions=None):
+                 language_detector='langdetect', custom_instructions=None, 
+                 use_vllm=False, vllm_url=None, vllm_model=None):
         """
         Initialize AppenCorrect with AI-first configuration and language detection.
         
         Args:
             language: Language code (e.g. 'en_US', 'es_ES') - kept for compatibility
-            gemini_api_key: Gemini API key for Google's Gemini flash-lite
+            gemini_api_key: Gemini API key for Google's Gemini flash-lite (if not using vLLM)
+            use_vllm: Use local vLLM instead of Gemini API
+            vllm_url: vLLM server URL (default: http://localhost:8000)
+            vllm_model: vLLM model name (default: Qwen/Qwen2.5-7B-Instruct)
             gemini_model: Gemini model name (default: gemini-2.5-flash-lite)
             language_detector: Language detection library to use ('lingua', 'langdetect', or 'disabled')
         """
@@ -191,40 +202,64 @@ class AppenCorrect:
         # Initialize custom instructions
         self.custom_instructions = custom_instructions or {}
         
-        # Get model configuration from environment
-        self.selected_model = get_env_var('OPENAI_MODEL', 'gemini-2.5-flash-lite')
+        # Check if vLLM should be used (from parameter or environment)
+        use_vllm = use_vllm or os.getenv('USE_VLLM', 'false').lower() == 'true'
         
-        # Set up API keys and model based on selected model
-        # Check for Gemini first to avoid conflict with models like "gemini-2.5-flash-lite" that contain "mini"
-        if 'gemini' in self.selected_model.lower():
-            # Use Gemini API  
-            self.api_type = 'gemini'
-            self.gemini_api_key = gemini_api_key or get_env_var('GEMINI_API_KEY')
-            self.gemini_model = self.selected_model
-            self.openai_api_key = None
-            self.openai_model = None
-            
-            # Debug API key availability
-            if self.gemini_api_key:
-                self.logger.debug(f"🔑 Gemini API key loaded: {len(self.gemini_api_key)} chars, starts with {self.gemini_api_key[:10]}...")
-                self._had_key_at_init = True
+        # Initialize vLLM client if requested
+        self.vllm_client = None
+        if use_vllm:
+            if not VLLM_AVAILABLE:
+                self.logger.error("vLLM requested but vllm_client module not available")
+                use_vllm = False
             else:
-                self.logger.warning(f"🚨 Gemini API key missing during init - env check: {bool(get_env_var('GEMINI_API_KEY'))}")
-                self._had_key_at_init = False
-        elif 'mini' in self.selected_model.lower() or 'gpt' in self.selected_model.lower() or 'o1' in self.selected_model.lower() or 'o3' in self.selected_model.lower() or 'o4' in self.selected_model.lower():
-            # Use OpenAI API for OpenAI models (gpt, o1, o3, o4, and any with "mini" that aren't Gemini)
-            self.api_type = 'openai'
-            self.openai_api_key = os.getenv('OPENAI_API_KEY')
-            self.gemini_api_key = None
-            self.gemini_model = None
-            self.openai_model = self.selected_model
-        else:
-            # Default to Gemini for backwards compatibility
-            self.api_type = 'gemini'
-            self.gemini_api_key = gemini_api_key or get_env_var('GEMINI_API_KEY')
-            self.gemini_model = gemini_model or os.getenv('GEMINI_MODEL', 'gemini-2.5-flash-lite')
-            self.openai_api_key = None
-            self.openai_model = None
+                try:
+                    self.vllm_client = create_vllm_client(
+                        base_url=vllm_url or os.getenv('VLLM_URL', 'http://localhost:8000'),
+                        model=vllm_model or os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-7B-Instruct')
+                    )
+                    self.api_type = 'vllm'
+                    self.selected_model = self.vllm_client.model
+                    self.logger.info(f"✓ vLLM client initialized - URL: {self.vllm_client.base_url}, Model: {self.selected_model}")
+                except Exception as e:
+                    self.logger.error(f"Failed to initialize vLLM client: {e}")
+                    use_vllm = False
+        
+        # If not using vLLM, use Gemini/OpenAI
+        if not use_vllm:
+            # Get model configuration from environment
+            self.selected_model = get_env_var('OPENAI_MODEL', 'gemini-2.5-flash-lite')
+            
+            # Set up API keys and model based on selected model
+            # Check for Gemini first to avoid conflict with models like "gemini-2.5-flash-lite" that contain "mini"
+            if 'gemini' in self.selected_model.lower():
+                # Use Gemini API  
+                self.api_type = 'gemini'
+                self.gemini_api_key = gemini_api_key or get_env_var('GEMINI_API_KEY')
+                self.gemini_model = self.selected_model
+                self.openai_api_key = None
+                self.openai_model = None
+                
+                # Debug API key availability
+                if self.gemini_api_key:
+                    self.logger.debug(f"🔑 Gemini API key loaded: {len(self.gemini_api_key)} chars, starts with {self.gemini_api_key[:10]}...")
+                    self._had_key_at_init = True
+                else:
+                    self.logger.warning(f"🚨 Gemini API key missing during init - env check: {bool(get_env_var('GEMINI_API_KEY'))}")
+                    self._had_key_at_init = False
+            elif 'mini' in self.selected_model.lower() or 'gpt' in self.selected_model.lower() or 'o1' in self.selected_model.lower() or 'o3' in self.selected_model.lower() or 'o4' in self.selected_model.lower():
+                # Use OpenAI API for OpenAI models (gpt, o1, o3, o4, and any with "mini" that aren't Gemini)
+                self.api_type = 'openai'
+                self.openai_api_key = os.getenv('OPENAI_API_KEY')
+                self.gemini_api_key = None
+                self.gemini_model = None
+                self.openai_model = self.selected_model
+            else:
+                # Default to Gemini for backwards compatibility
+                self.api_type = 'gemini'
+                self.gemini_api_key = gemini_api_key or get_env_var('GEMINI_API_KEY')
+                self.gemini_model = gemini_model or os.getenv('GEMINI_MODEL', 'gemini-2.5-flash-lite')
+                self.openai_api_key = None
+                self.openai_model = None
         
         self.language_detector = language_detector
         
@@ -245,7 +280,13 @@ class AppenCorrect:
         
         # Test API connection and store detailed status
         self.api_unavailable_reason = None  # Store why API is not available
-        if self.api_type == 'openai':
+        if self.api_type == 'vllm':
+            # Test vLLM connection
+            self.api_available = self.vllm_client.test_connection()
+            if not self.api_available:
+                self.api_unavailable_reason = f"vLLM server not reachable at {self.vllm_client.base_url}"
+                self.logger.error(f"vLLM API unavailable: {self.api_unavailable_reason}")
+        elif self.api_type == 'openai':
             if not self.openai_api_key:
                 self.api_available = False
                 self.api_unavailable_reason = "OpenAI API key not provided (check OPENAI_API_KEY environment variable)"
@@ -1033,7 +1074,16 @@ If no spelling errors: {"corrected_text": "[original text]", "corrections": []}"
             user_message = f"Check this text for spelling errors only:\n\n{text}"
             
             # Call AI API
-            if self.api_type == 'gemini':
+            if self.api_type == 'vllm':
+                # Use vLLM for local inference
+                prompt = f"{system_message}\n\n{user_message}"
+                generated_text = self.vllm_client.generate(
+                    prompt=prompt,
+                    max_tokens=1000,
+                    temperature=0.2
+                )
+                response = {'text': generated_text} if generated_text else None
+            elif self.api_type == 'gemini':
                 response = call_gemini_api(
                 messages=[{"content": user_message}],
                 system_message=system_message,
@@ -1209,7 +1259,21 @@ Only flag actual mistakes, never valid regional variants."""
             user_message = f"Fix all errors in this text:\n\n{text}"
             
             # Call appropriate API based on selected model
-            if self.api_type == 'openai':
+            if self.api_type == 'vllm':
+                self.logger.debug(f"🤖 Calling vLLM - Model: {self.vllm_client.model}, Language: {detected_language or 'unknown'}")
+                prompt = f"{system_message}\n\n{user_message}"
+                generated_text = self.vllm_client.generate(
+                    prompt=prompt,
+                    max_tokens=1024,
+                    temperature=0.2
+                )
+                
+                if generated_text:
+                    corrections = self._parse_complete_correction_response(generated_text, text)
+                else:
+                    corrections = []
+                    
+            elif self.api_type == 'openai':
                 self.logger.debug(f"🤖 Calling OpenAI API - Model: {self.openai_model}, Language: {detected_language or 'unknown'}")
                 response = call_openai_api(
                     messages=[{"role": "user", "content": user_message}],
