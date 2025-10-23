@@ -1,0 +1,21 @@
+[Unit]
+Description=AppenCorrect (Optimized for 8 cores)
+After=network.target
+
+[Service]
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/home/ec2-user/apps/AppenCorrect
+ExecStart=/home/ec2-user/autocase_env/bin/waitress-serve --host=0.0.0.0 --port=5006 --threads=300 --connection-limit=1200 --cleanup-interval=30 --channel-timeout=120 --send-bytes=18000 app:app
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+Environment=VALKEY_HOST=appencorrect-redis-0g4w6b.serverless.usw2.cache.amazonaws.com
+Environment=VALKEY_PORT=6379
+Environment=VALKEY_DB=0
+Environment=VALKEY_ENABLED=true
+Environment=VALKEY_SSL=true
+Environment=VALKEY_DEFAULT_TTL=3600
+
+[Install]
+WantedBy=multi-user.target

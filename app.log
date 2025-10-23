@@ -1,0 +1,133 @@
+
+    ╔══════════════════════════════════════════════════════════════╗
+    ║                        AppenCorrect                          ║
+    ║              Spelling & Grammar Checker API                  ║
+    ╠══════════════════════════════════════════════════════════════╣
+    ║  Demo:   http://localhost:5006/                              ║
+    ║  Health: http://localhost:5006/health                        ║
+    ║                                                              ║
+    ║  For production use:                                         ║
+    ║  waitress-serve --host=0.0.0.0 --port=5006 app:app          ║
+    ╚══════════════════════════════════════════════════════════════╝
+    
+ * Serving Flask app 'api'
+ * Debug mode: off
+2025-08-26 21:37:34,812 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5006
+ * Running on http://10.0.16.112:5006
+2025-08-26 21:37:34,812 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-08-26 21:38:02,307 - core - INFO - AppenCorrect Core initialized - API: gemini, Model: gemini-2.5-flash-lite
+2025-08-26 21:38:02,307 - core - INFO - Language detector initialized: langdetect
+2025-08-26 21:38:02,307 - core - INFO - Testing Gemini API connection with model: gemini-2.5-flash-lite
+2025-08-26 21:38:02,352 - rate_limiter - INFO - Rate limiter initialized for gemini-2.5-flash-lite - RPM: 4,000, TPM: 4,000,000, RPD: No limit
+2025-08-26 21:38:02,353 - gemini_api - INFO - Attempt 1 to call Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:38:02,353 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-26 21:38:02,905 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2025-08-26 21:38:02,907 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-08-26 21:38:02,907 - gemini_api - INFO - Received response from Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:38:02,908 - core - INFO - Gemini API connection test successful
+2025-08-26 21:38:02,909 - core - INFO - GEMINI API connection successful - Model: gemini-2.5-flash-lite
+2025-08-26 21:38:02,909 - api - INFO - Flask API initialized - Gemini model: gemini-2.5-flash-lite
+2025-08-26 21:38:02,909 - core - INFO - Using language override: en-GB
+2025-08-26 21:38:02,935 - gemini_api - INFO - Attempt 1 to call Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:38:02,935 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-26 21:38:03,703 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2025-08-26 21:38:03,705 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-08-26 21:38:03,705 - gemini_api - INFO - Received response from Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:38:04,095 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:38:04] "POST /demo/check HTTP/1.1" 200 -
+2025-08-26 21:38:07,114 - core - INFO - Using language override: es-MX
+2025-08-26 21:38:07,142 - gemini_api - INFO - Attempt 1 to call Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:38:07,143 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-26 21:38:07,887 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2025-08-26 21:38:07,888 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-08-26 21:38:07,889 - gemini_api - INFO - Received response from Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:38:07,917 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:38:07] "POST /demo/check HTTP/1.1" 200 -
+2025-08-26 21:38:11,307 - core - INFO - Using language override: de-AT
+2025-08-26 21:38:11,333 - gemini_api - INFO - Attempt 1 to call Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:38:11,333 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-26 21:38:12,028 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2025-08-26 21:38:12,029 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-08-26 21:38:12,029 - gemini_api - INFO - Received response from Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:38:12,034 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:38:12] "POST /demo/check HTTP/1.1" 200 -
+2025-08-26 21:38:21,071 - core - INFO - Using language override: pl-PL
+2025-08-26 21:38:21,097 - gemini_api - INFO - Attempt 1 to call Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:38:21,097 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-26 21:38:21,668 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2025-08-26 21:38:21,669 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-08-26 21:38:21,670 - gemini_api - INFO - Received response from Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:38:21,675 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:38:21] "POST /demo/check HTTP/1.1" 200 -
+2025-08-26 21:38:24,575 - core - INFO - Using language override: tlh
+2025-08-26 21:38:24,601 - gemini_api - INFO - Attempt 1 to call Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:38:24,601 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-26 21:38:25,090 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2025-08-26 21:38:25,093 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-08-26 21:38:25,093 - gemini_api - INFO - Received response from Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:38:25,105 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:38:25] "POST /demo/check HTTP/1.1" 200 -
+2025-08-26 21:40:04,035 - core - INFO - Using language override: custom-dialect-xyz123
+2025-08-26 21:40:04,060 - gemini_api - INFO - Attempt 1 to call Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:40:04,060 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-26 21:40:04,809 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2025-08-26 21:40:04,811 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-08-26 21:40:04,811 - gemini_api - INFO - Received response from Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:40:04,817 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:40:04] "POST /demo/check HTTP/1.1" 200 -
+2025-08-26 21:44:01,014 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:44:01] "GET / HTTP/1.1" 200 -
+2025-08-26 21:44:02,096 - core - INFO - Auto-detected language: english
+2025-08-26 21:44:02,121 - gemini_api - INFO - Attempt 1 to call Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:44:02,121 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-26 21:44:03,455 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2025-08-26 21:44:03,456 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-08-26 21:44:03,456 - gemini_api - INFO - Received response from Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:44:03,463 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:44:03] "POST /demo/check HTTP/1.1" 200 -
+2025-08-26 21:44:11,677 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:44:11] "GET / HTTP/1.1" 200 -
+2025-08-26 21:44:12,600 - core - INFO - Auto-detected language: english
+2025-08-26 21:44:12,605 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:44:12] "POST /demo/check HTTP/1.1" 200 -
+2025-08-26 21:44:27,551 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:44:27] "GET /api-management HTTP/1.1" 200 -
+2025-08-26 21:44:27,627 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:44:27] "GET /api/feedback HTTP/1.1" 200 -
+2025-08-26 21:44:27,627 - api_auth - INFO - API keys database initialized
+2025-08-26 21:44:27,628 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:44:27] "GET /api/keys HTTP/1.1" 200 -
+2025-08-26 21:44:27,657 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:44:27] "GET /api/keys HTTP/1.1" 200 -
+2025-08-26 21:44:27,710 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:44:27] "GET /api/usage?days=7 HTTP/1.1" 200 -
+2025-08-26 21:45:18,496 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:45:18] "GET /api-docs HTTP/1.1" 200 -
+2025-08-26 21:48:11,698 - core - INFO - Auto-detected language: english
+2025-08-26 21:48:11,730 - gemini_api - INFO - Attempt 1 to call Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:48:11,734 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-26 21:48:12,475 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2025-08-26 21:48:12,476 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-08-26 21:48:12,477 - gemini_api - INFO - Received response from Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:48:12,492 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:48:12] "POST /check HTTP/1.1" 200 -
+2025-08-26 21:48:27,642 - core - INFO - Using language override: en-GB
+2025-08-26 21:48:27,670 - gemini_api - INFO - Attempt 1 to call Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:48:27,670 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-26 21:48:28,574 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2025-08-26 21:48:28,578 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-08-26 21:48:28,578 - gemini_api - INFO - Received response from Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:48:28,588 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:48:28] "POST /check HTTP/1.1" 200 -
+2025-08-26 21:48:39,087 - core - INFO - Using language override: fr-CA
+2025-08-26 21:48:39,112 - gemini_api - INFO - Attempt 1 to call Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:48:39,112 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-26 21:48:39,572 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2025-08-26 21:48:39,573 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-08-26 21:48:39,573 - gemini_api - INFO - Received response from Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:48:39,583 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:48:39] "POST /check HTTP/1.1" 200 -
+2025-08-26 21:48:48,120 - core - INFO - Using language override: custom-medical-terminology
+2025-08-26 21:48:48,145 - gemini_api - INFO - Attempt 1 to call Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:48:48,146 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-26 21:48:48,732 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2025-08-26 21:48:48,733 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-08-26 21:48:48,734 - gemini_api - INFO - Received response from Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:48:48,745 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:48:48] "POST /check HTTP/1.1" 200 -
+2025-08-26 21:48:57,284 - core - INFO - Using language override: es-MX
+2025-08-26 21:48:57,309 - gemini_api - INFO - Attempt 1 to call Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:48:57,309 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-26 21:48:58,051 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2025-08-26 21:48:58,052 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-08-26 21:48:58,053 - gemini_api - INFO - Received response from Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:48:58,065 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:48:58] "POST /check HTTP/1.1" 200 -
+2025-08-26 21:49:05,440 - core - INFO - Using language override: german
+2025-08-26 21:49:05,465 - gemini_api - INFO - Attempt 1 to call Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:49:05,465 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-26 21:49:05,954 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent "HTTP/1.1 200 OK"
+2025-08-26 21:49:05,956 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-08-26 21:49:05,958 - gemini_api - INFO - Received response from Gemini API (gemini-2.5-flash-lite).
+2025-08-26 21:49:05,977 - werkzeug - INFO - 127.0.0.1 - - [26/Aug/2025 21:49:05] "POST /check HTTP/1.1" 200 -

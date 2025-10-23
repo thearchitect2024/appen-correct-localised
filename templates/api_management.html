@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AppenCorrect API Management</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        .nav {
+            background: white;
+            padding: 15px 0;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .nav a {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 20px;
+            padding: 10px 20px;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .nav a:hover {
+            background-color: #f0f2ff;
+        }
+        .section {
+            background: white;
+            margin-bottom: 30px;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background: #5a67d8;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .table th, .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        .table tr:hover {
+            background-color: #f8f9fa;
+        }
+        .alert {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            border-left: 4px solid;
+        }
+        .alert-success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .alert-warning {
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+        .alert-info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        .alert-danger {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .copy-key {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+        .copy-key:hover {
+            background: #218838;
+        }
+        .key-preview {
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            word-break: break-all;
+        }
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .modal-overlay {
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0,0,0,0.5); 
+            z-index: 10000; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>⚙️ API Management</h1>
+            <p>Create and manage your AppenCorrect API keys</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="nav">
+            <a href="/">🏠 Demo</a>
+            <a href="/api-docs">📚 API Docs</a>
+            <a href="/api-management">⚙️ API Management</a>
+            <a href="/health">💚 Health Check</a>
+            <a href="/logout" style="color: #e53e3e; border: 1px solid #e53e3e;">🚪 Logout</a>
+        </div>
+
+        <!-- Alerts -->
+        <div id="alerts"></div>
+
+        <div class="grid">
+            <!-- Create New API Key -->
+            <div class="section">
+                <h2>🔑 Create New API Key</h2>
+                
+                <form id="createKeyForm">
+                    <div class="form-group">
+                        <label for="keyName">Key Name *</label>
+                        <input type="text" id="keyName" name="name" placeholder="e.g., My Application" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="keyDescription">Description</label>
+                        <textarea id="keyDescription" name="description" rows="3" placeholder="Optional description of what this key is for..."></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="rateLimit">Rate Limit (requests per hour)</label>
+                        <select id="rateLimit" name="rate_limit_per_hour">
+                            <option value="100">100 - Light usage</option>
+                            <option value="500">500 - Moderate usage</option>
+                            <option value="1000" selected>1000 - Standard usage</option>
+                            <option value="2500">2500 - Heavy usage</option>
+                            <option value="5000">5000 - Enterprise usage</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn">🔑 Generate API Key</button>
+                </form>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="section">
+                <h2>📊 Quick Stats</h2>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalKeys">-</div>
+                        <div class="stat-label">Total API Keys</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="activeKeys">-</div>
+                        <div class="stat-label">Active Keys</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalRequests">-</div>
+                        <div class="stat-label">Total Requests (7 days)</div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <strong>💡 Getting Started:</strong> Create your first API key above, then use it in the <code>X-API-Key</code> header for all API requests.
+                </div>
+            </div>
+        </div>
+
+        <!-- API Keys List -->
+        <div class="section">
+            <h2>🗂️ Your API Keys</h2>
+            
+            <div class="alert alert-warning">
+                <strong>⚠️ Security Notice:</strong> API keys are only shown once during creation. Store them securely and never share them publicly.
+            </div>
+
+            <div id="keysTableContainer">
+                <div style="text-align: center; padding: 40px; color: #666;">
+                    <div style="font-size: 3em; margin-bottom: 20px;">🔄</div>
+                    <p>Loading API keys...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Usage Statistics -->
+        <div class="section">
+            <h2>📈 Usage Statistics</h2>
+            
+            <div class="form-group">
+                <label for="statsKeySelect">Select API Key:</label>
+                <select id="statsKeySelect">
+                    <option value="">All API Keys</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="statsPeriod">Time Period:</label>
+                <select id="statsPeriod">
+                    <option value="1">Last 24 hours</option>
+                    <option value="7" selected>Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                </select>
+            </div>
+            
+            <button class="btn btn-secondary" onclick="loadUsageStats()">📈 Load Statistics</button>
+            
+            <div id="statsContainer" style="margin-top: 20px;">
+                <p style="color: #666; text-align: center;">Select options above and click "Load Statistics" to view usage data.</p>
+            </div>
+        </div>
+
+        <!-- User Feedback -->
+        <div class="section">
+            <h2>💬 User Feedback</h2>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="feedbackTotal">-</div>
+                    <div class="stat-label">Total Feedback</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="feedbackPositive">-</div>
+                    <div class="stat-label">👍 Positive</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="feedbackNegative">-</div>
+                    <div class="stat-label">👎 Negative</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="feedbackMissing">-</div>
+                    <div class="stat-label">🤔 Missing Errors</div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin: 20px 0; align-items: center;">
+                <div class="form-group" style="margin: 0;">
+                    <label for="feedbackFilter">Filter:</label>
+                    <select id="feedbackFilter">
+                        <option value="">All Feedback</option>
+                        <option value="positive">👍 Positive</option>
+                        <option value="negative">👎 Negative</option>
+                        <option value="missing_error">🤔 Missing Errors</option>
+                        <option value="text_confirmed_clean">✅ Text Confirmed Clean</option>
+                        <option value="manual_correction">✏️ Manual Corrections</option>
+                    </select>
+                </div>
+                <button class="btn btn-secondary" onclick="loadFeedbackData()">🔄 Refresh</button>
+            </div>
+
+            <div id="feedbackContainer" style="margin-top: 20px;">
+                <div style="text-align: center; padding: 40px; color: #666;">
+                    <div style="font-size: 3em; margin-bottom: 20px;">💬</div>
+                    <p>Loading user feedback...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cost Analytics -->
+        <div class="section">
+            <h2>💰 Cost Analytics</h2>
+            
+            <div class="alert alert-info">
+                <strong>💡 Track Your Costs:</strong> Monitor your Gemini API usage costs with detailed token and spending breakdowns.
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalCostMonth">-</div>
+                    <div class="stat-label">This Month</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalCostWeek">-</div>
+                    <div class="stat-label">This Week</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="avgCostPerRequest">-</div>
+                    <div class="stat-label">Avg per Request</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalTokensMonth">-</div>
+                    <div class="stat-label">Tokens This Month</div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin: 20px 0; align-items: center;">
+                <div class="form-group" style="margin: 0;">
+                    <label for="costApiKeyFilter">API Key:</label>
+                    <select id="costApiKeyFilter">
+                        <option value="">All API Keys</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label for="costPeriodFilter">Period:</label>
+                    <select id="costPeriodFilter">
+                        <option value="7">Last 7 days</option>
+                        <option value="30" selected>Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                    </select>
+                </div>
+                <button class="btn btn-secondary" onclick="loadCostAnalytics()">💰 Load Costs</button>
+                <button class="btn btn-secondary" onclick="exportCostData()" style="background: #28a745;">📊 Export CSV</button>
+            </div>
+
+            <div id="costContainer" style="margin-top: 20px;">
+                <div style="text-align: center; padding: 40px; color: #666;">
+                    <div style="font-size: 3em; margin-bottom: 20px;">💰</div>
+                    <p>Loading cost analytics...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Logs -->
+        <div class="section">
+            <h2>📋 System Logs</h2>
+            
+            <div class="alert alert-info">
+                <strong>🔍 Monitor Your System:</strong> View application logs, errors, and performance metrics in real-time.
+            </div>
+
+            <div style="display: flex; gap: 10px; margin: 20px 0; align-items: center;">
+                <div class="form-group" style="margin: 0;">
+                    <label for="logLinesFilter">Lines:</label>
+                    <select id="logLinesFilter">
+                        <option value="50">Last 50 lines</option>
+                        <option value="100" selected>Last 100 lines</option>
+                        <option value="500">Last 500 lines</option>
+                        <option value="1000">Last 1000 lines</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label for="logLevelFilter">Level:</label>
+                    <select id="logLevelFilter">
+                        <option value="all" selected>All Levels</option>
+                        <option value="error">🔴 Errors Only</option>
+                        <option value="warning">🟡 Warnings Only</option>
+                        <option value="info">🔵 Info Only</option>
+                    </select>
+                </div>
+                <button class="btn btn-secondary" onclick="loadLogs()">📋 Refresh Logs</button>
+                <button class="btn btn-secondary" onclick="downloadLogs()" style="background: #dc3545;">💾 Download</button>
+                <button class="btn btn-secondary" onclick="toggleAutoRefresh()" id="autoRefreshBtn" style="background: #28a745;">⏸️ Auto-Refresh</button>
+            </div>
+
+            <div id="logsContainer" style="margin-top: 20px;">
+                <div style="text-align: center; padding: 40px; color: #666;">
+                    <div style="font-size: 3em; margin-bottom: 20px;">📋</div>
+                    <p>Loading system logs...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New API Key Modal -->
+    <div id="newKeyModal" class="hidden modal-overlay">
+        <div style="background: white; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%;">
+            <h3 style="margin-top: 0; color: #28a745;">✅ API Key Created Successfully!</h3>
+            
+            <div class="alert alert-warning">
+                <strong>⚠️ Important:</strong> This is the only time you'll see this API key. Copy it now and store it securely.
+            </div>
+            
+            <div class="form-group">
+                <label>Your new API Key:</label>
+                <div class="key-preview" id="newApiKeyDisplay">
+                    <!-- API key will be inserted here -->
+                </div>
+                <button class="copy-key" onclick="copyNewApiKey()">📋 Copy Key</button>
+            </div>
+            
+            <div style="text-align: right; margin-top: 20px;">
+                <button class="btn" onclick="closeNewKeyModal()">Got it!</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let apiKeys = [];
+        let newApiKeyValue = '';
+
+        // Load API keys on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadApiKeys();
+            loadQuickStats();
+            loadFeedbackData();
+            loadCostAnalytics();
+            loadLogs();
+        });
+
+        // Reload data when user returns to tab (fixes tab switching issue)
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                console.log('Tab became visible, reloading data...');
+                showAlert('info', '🔄 Refreshing data...'); 
+                loadApiKeys();
+                loadQuickStats();
+                if (logsAutoRefresh) loadLogs(); // Only reload logs if auto-refresh is enabled
+                setTimeout(() => clearAlerts(), 2000);
+            }
+        });
+
+        // Create API key form handler
+        document.getElementById('createKeyForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const form = e.target;
+            const formData = new FormData(form);
+            
+            const data = {
+                name: formData.get('name'),
+                description: formData.get('description') || '',
+                rate_limit_per_hour: parseInt(formData.get('rate_limit_per_hour'))
+            };
+            
+            try {
+                showAlert('info', '🔄 Creating API key...');
+                form.classList.add('loading');
+                
+                const response = await fetch('/api/keys', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Show the new API key in modal
+                    newApiKeyValue = result.api_key;
+                    document.getElementById('newApiKeyDisplay').textContent = result.api_key;
+                    document.getElementById('newKeyModal').classList.remove('hidden');
+                    
+                    // Clear form
+                    form.reset();
+                    
+                    // Reload keys list
+                    loadApiKeys();
+                    loadQuickStats();
+                    
+                    clearAlerts();
+                } else {
+                    showAlert('danger', `❌ Error: ${result.error}`);
+                }
+                
+            } catch (error) {
+                console.error('Error creating API key:', error);
+                showAlert('danger', '❌ Failed to create API key. Please try again.');
+            } finally {
+                form.classList.remove('loading');
+            }
+        });
+
+        // Load API keys list
+        async function loadApiKeys() {
+            try {
+                const response = await fetch('/api/keys');
+                
+                // Check for authentication issues
+                if (response.status === 401 || response.status === 403) {
+                    console.log('Authentication failed, redirecting to login...');
+                    window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+                    return;
+                }
+                
+                if (response.status === 302) {
+                    console.log('Redirected to login, following redirect...');
+                    window.location.reload();
+                    return;
+                }
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    apiKeys = result.api_keys;
+                    renderApiKeysTable(apiKeys);
+                    populateStatsKeySelect(apiKeys);
+                    populateCostKeySelect();
+                    console.log(`Successfully loaded ${apiKeys.length} API keys`);
+                } else {
+                    console.error('API keys load failed:', result.error);
+                    showAlert('danger', `❌ Error loading API keys: ${result.error}`);
+                }
+                
+            } catch (error) {
+                console.error('Network error loading API keys:', error);
+                showAlert('danger', '❌ Failed to load API keys. Please refresh the page.');
+            }
+        }
+
+        // Render API keys table
+        function renderApiKeysTable(keys) {
+            const container = document.getElementById('keysTableContainer');
+            
+            if (!keys || keys.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        <div style="font-size: 3em; margin-bottom: 20px;">🔑</div>
+                        <p>No API keys found. Create your first API key above!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let tableHtml = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Key ID</th>
+                            <th>Rate Limit</th>
+                            <th>Usage</th>
+                            <th>Created</th>
+                            <th>Last Used</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            keys.forEach(key => {
+                const createdDate = new Date(key.created_at).toLocaleDateString();
+                const lastUsedDate = key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : 'Never';
+                const statusBadge = key.is_active ? 
+                    '<span class="status-badge status-active">Active</span>' : 
+                    '<span class="status-badge status-inactive">Inactive</span>';
+                
+                tableHtml += `
+                    <tr>
+                        <td>
+                            <strong>${escapeHtml(key.name)}</strong>
+                            ${key.description ? `<br><small style="color: #666;">${escapeHtml(key.description)}</small>` : ''}
+                        </td>
+                        <td><code>${escapeHtml(key.key_id)}</code></td>
+                        <td>${key.rate_limit_per_hour.toLocaleString()}/hour</td>
+                        <td>${key.usage_count.toLocaleString()} requests</td>
+                        <td>${createdDate}</td>
+                        <td>${lastUsedDate}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            ${key.is_active ? 
+                                `<button class="btn btn-danger" onclick="deactivateKey('${key.key_id}')">🚫 Deactivate</button>` :
+                                '<span style="color: #666;">No actions</span>'
+                            }
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tableHtml += '</tbody></table>';
+            container.innerHTML = tableHtml;
+        }
+
+        // Load quick statistics
+        async function loadQuickStats() {
+            try {
+                console.log('Loading quick stats...');
+                
+                const keysResponse = await fetch('/api/keys');
+                
+                // Check for authentication issues
+                if (keysResponse.status === 401 || keysResponse.status === 403) {
+                    console.log('Quick stats auth failed, will redirect via loadApiKeys...');
+                    return; // Don't redirect here, let loadApiKeys handle it
+                }
+                
+                const keysResult = await keysResponse.json();
+                
+                if (keysResponse.ok && keysResult.api_keys) {
+                    const totalKeys = keysResult.api_keys.length;
+                    const activeKeys = keysResult.api_keys.filter(k => k.is_active).length;
+                    
+                    document.getElementById('totalKeys').textContent = totalKeys;
+                    document.getElementById('activeKeys').textContent = activeKeys;
+                }
+                
+                // Try usage stats separately with better error handling
+                try {
+                    console.log('Fetching usage stats...');
+                    const usageResponse = await fetch('/api/usage?days=7');
+                    
+                    if (usageResponse.ok) {
+                        const usageResult = await usageResponse.json();
+                        console.log('Usage result:', usageResult);
+                        
+                        if (usageResult.usage_stats) {
+                            const totalRequests = usageResult.usage_stats.reduce((sum, stat) => sum + (stat.count || 0), 0);
+                            document.getElementById('totalRequests').textContent = totalRequests.toLocaleString();
+                        }
+                    } else {
+                        console.error('Usage stats request failed:', usageResponse.status, await usageResponse.text());
+                        document.getElementById('totalRequests').textContent = 'Error';
+                    }
+                } catch (usageError) {
+                    console.error('Error fetching usage stats:', usageError);
+                    document.getElementById('totalRequests').textContent = '0';
+                }
+                
+            } catch (error) {
+                console.error('Error loading quick stats:', error);
+            }
+        }
+
+        // Deactivate API key
+        async function deactivateKey(keyId) {
+            if (!confirm(`Are you sure you want to deactivate API key ${keyId}? This action cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                showAlert('info', '🔄 Deactivating API key...');
+                
+                const response = await fetch(`/api/keys/${keyId}/deactivate`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('success', `✅ API key ${keyId} deactivated successfully`);
+                    loadApiKeys();
+                    loadQuickStats();
+                } else {
+                    showAlert('danger', `❌ Error: ${result.error}`);
+                }
+                
+            } catch (error) {
+                console.error('Error deactivating API key:', error);
+                showAlert('danger', '❌ Failed to deactivate API key.');
+            }
+        }
+
+        // Load usage statistics
+        async function loadUsageStats() {
+            const keyId = document.getElementById('statsKeySelect').value;
+            const days = document.getElementById('statsPeriod').value;
+            
+            try {
+                showAlert('info', '🔄 Loading usage statistics...');
+                
+                const params = new URLSearchParams({ days });
+                if (keyId) params.append('key_id', keyId);
+                
+                const response = await fetch(`/api/usage?${params}`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    renderUsageStats(result.usage_stats, keyId, days);
+                    clearAlerts();
+                } else {
+                    showAlert('danger', `❌ Error: ${result.error}`);
+                }
+                
+            } catch (error) {
+                console.error('Error loading usage stats:', error);
+                showAlert('danger', '❌ Failed to load usage statistics.');
+            }
+        }
+
+        // Render usage statistics
+        function renderUsageStats(stats, keyId, days) {
+            const container = document.getElementById('statsContainer');
+            
+            if (!stats || stats.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #666;">
+                        <p>No usage data found for the selected period.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let tableHtml = `
+                <h3>Usage Statistics (Last ${days} day${days > 1 ? 's' : ''})</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            ${keyId ? '<th>Endpoint</th>' : '<th>API Key</th>'}
+                            <th>Requests</th>
+                            <th>Avg Response Time</th>
+                            <th>Data Processed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            stats.forEach(stat => {
+                const avgTime = stat.avg_processing_time ? `${Math.round(stat.avg_processing_time)}ms` : 'N/A';
+                const totalData = formatBytes((stat.total_request_size || 0) + (stat.total_response_size || 0));
+                
+                tableHtml += `
+                    <tr>
+                        <td>${keyId ? escapeHtml(stat.endpoint || 'Unknown') : escapeHtml(stat.key_id || 'Unknown')}</td>
+                        <td>${(stat.count || 0).toLocaleString()}</td>
+                        <td>${avgTime}</td>
+                        <td>${totalData}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHtml += '</tbody></table>';
+            container.innerHTML = tableHtml;
+        }
+
+        // Populate stats key selector
+        function populateStatsKeySelect(keys) {
+            const select = document.getElementById('statsKeySelect');
+            
+            // Clear existing options except "All"
+            while (select.children.length > 1) {
+                select.removeChild(select.lastChild);
+            }
+            
+            // Add active keys
+            keys.filter(k => k.is_active).forEach(key => {
+                const option = document.createElement('option');
+                option.value = key.key_id;
+                option.textContent = `${key.name} (${key.key_id})`;
+                select.appendChild(option);
+            });
+        }
+
+        // Show alert message
+        function showAlert(type, message) {
+            const alertsContainer = document.getElementById('alerts');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = message;
+            
+            // Clear previous alerts of same type
+            const existingAlerts = alertsContainer.querySelectorAll(`.alert-${type}`);
+            existingAlerts.forEach(a => a.remove());
+            
+            alertsContainer.appendChild(alert);
+            
+            // Auto-remove info/success alerts
+            if (type === 'info' || type === 'success') {
+                setTimeout(() => {
+                    alert.remove();
+                }, 5000);
+            }
+        }
+
+        // Clear all alerts
+        function clearAlerts() {
+            document.getElementById('alerts').innerHTML = '';
+        }
+
+        // Copy new API key to clipboard
+        function copyNewApiKey() {
+            navigator.clipboard.writeText(newApiKeyValue).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('Could not copy text: ', err);
+                showAlert('warning', '⚠️ Could not copy to clipboard. Please select and copy manually.');
+            });
+        }
+
+        // Close new key modal
+        function closeNewKeyModal() {
+            document.getElementById('newKeyModal').classList.add('hidden');
+            newApiKeyValue = '';
+        }
+
+        // Utility functions
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        // Load feedback data
+        async function loadFeedbackData() {
+            try {
+                const response = await fetch('/api/feedback');
+                
+                // Check for authentication issues
+                if (response.status === 401 || response.status === 403) {
+                    console.log('Feedback data auth failed, will redirect via loadApiKeys...');
+                    return; // Don't redirect here, let loadApiKeys handle it
+                }
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    updateFeedbackStats(result.stats);
+                    renderFeedbackTable(result.feedback);
+                } else {
+                    showAlert('danger', `❌ Error loading feedback: ${result.error}`);
+                }
+                
+            } catch (error) {
+                console.error('Error loading feedback data:', error);
+                showAlert('danger', '❌ Failed to load feedback data.');
+            }
+        }
+
+        // Update feedback statistics
+        function updateFeedbackStats(stats) {
+            document.getElementById('feedbackTotal').textContent = stats.total || 0;
+            document.getElementById('feedbackPositive').textContent = stats.positive || 0;
+            document.getElementById('feedbackNegative').textContent = (stats.negative || 0) + (stats.manual_correction || 0);
+            document.getElementById('feedbackMissing').textContent = stats.missing_error || 0;
+        }
+
+        // Render feedback table
+        function renderFeedbackTable(feedback) {
+            const container = document.getElementById('feedbackContainer');
+            const filter = document.getElementById('feedbackFilter').value;
+            
+            // Filter feedback based on selection
+            let filteredFeedback = feedback;
+            if (filter) {
+                filteredFeedback = feedback.filter(f => f.feedback_type === filter);
+            }
+            
+            if (!filteredFeedback || filteredFeedback.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        <div style="font-size: 3em; margin-bottom: 20px;">💬</div>
+                        <p>${filter ? `No ${filter} feedback found.` : 'No feedback data available.'}</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let tableHtml = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Original Text</th>
+                            <th>AI Suggestion</th>
+                            <th>User Correction</th>
+                            <th>Category</th>
+                            <th>Confidence</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            filteredFeedback.forEach(f => {
+                const feedbackIcon = getFeedbackIcon(f.feedback_type);
+                const originalText = truncateText(f.original || '', 40);
+                const aiSuggestion = truncateText(f.ai_suggestion || '', 40);
+                const userCorrection = truncateText(f.user_correction || '', 40);
+                const timestamp = formatTimestamp(f.timestamp);
+                const confidence = f.confidence ? (f.confidence * 100).toFixed(0) + '%' : '-';
+                
+                tableHtml += `
+                    <tr>
+                        <td>${feedbackIcon}</td>
+                        <td title="${escapeHtml(f.original || '')}">${originalText}</td>
+                        <td title="${escapeHtml(f.ai_suggestion || '')}">${aiSuggestion}</td>
+                        <td title="${escapeHtml(f.user_correction || '')}">${userCorrection || '-'}</td>
+                        <td>${f.correction_type || 'unknown'}</td>
+                        <td>${confidence}</td>
+                        <td>${timestamp}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHtml += `
+                    </tbody>
+                </table>
+                <div style="margin-top: 15px; color: #666; font-size: 14px;">
+                    Showing ${filteredFeedback.length} of ${feedback.length} feedback entries (most recent first)
+                </div>
+            `;
+            
+            container.innerHTML = tableHtml;
+        }
+
+        // Get feedback type icon
+        function getFeedbackIcon(type) {
+            switch (type) {
+                case 'positive': return '👍 Positive';
+                case 'negative': return '👎 Negative';
+                case 'missing_error': return '🤔 Missing Error';
+                case 'text_confirmed_clean': return '✅ Confirmed Clean';
+                case 'manual_correction': return '✏️ Manual Fix';
+                default: return type || 'unknown';
+            }
+        }
+
+        // Truncate text for table display
+        function truncateText(text, maxLength) {
+            if (!text) return '-';
+            if (text.length <= maxLength) return escapeHtml(text);
+            return escapeHtml(text.substring(0, maxLength)) + '...';
+        }
+
+        // Format timestamp for display
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return '-';
+            const date = new Date(timestamp);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        // Escape HTML characters
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Filter feedback when dropdown changes
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('feedbackFilter').addEventListener('change', function() {
+                // Re-render with current data but new filter
+                loadFeedbackData();
+            });
+            
+            // Cost analytics filter changes
+            document.getElementById('costApiKeyFilter').addEventListener('change', function() {
+                loadCostAnalytics();
+            });
+            
+            document.getElementById('costPeriodFilter').addEventListener('change', function() {
+                loadCostAnalytics();
+            });
+        });
+
+        // Populate stats key selector (if it doesn't exist)
+        function populateStatsKeySelect(keys) {
+            const select = document.getElementById('statsKeySelect');
+            if (select && keys) {
+                select.innerHTML = '<option value="">All API Keys</option>';
+                keys.forEach(key => {
+                    const option = document.createElement('option');
+                    option.value = key.key_id;
+                    option.textContent = `${key.name} (${key.key_id.substring(0, 12)}...)`;
+                    select.appendChild(option);
+                });
+            }
+        }
+
+        // Load cost analytics data
+        async function loadCostAnalytics() {
+            try {
+                const keyId = document.getElementById('costApiKeyFilter').value;
+                const days = document.getElementById('costPeriodFilter').value;
+                
+                const params = new URLSearchParams({ days });
+                if (keyId) params.append('key_id', keyId);
+                
+                const response = await fetch(`/api/cost-analytics?${params}`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    updateCostStats(result.summary, days);
+                    renderCostTable(result.cost_data, result.summary);
+                    // Don't repopulate dropdown - it resets the selection
+                } else {
+                    showAlert('danger', `❌ Error loading cost analytics: ${result.error}`);
+                }
+                
+            } catch (error) {
+                console.error('Error loading cost analytics:', error);
+                showAlert('danger', '❌ Failed to load cost analytics.');
+            }
+        }
+
+        // Update cost statistics display
+        function updateCostStats(summary, days) {
+            const formatCost = (cost) => cost ? `$${cost.toFixed(4)}` : '$0.00';
+            const formatTokens = (tokens) => tokens ? `${(tokens/1000).toFixed(1)}K` : '0';
+            
+            // Show actual costs for the selected period, not projections
+            const actualCost = summary.total_cost_usd || 0;
+            
+            // Update labels and values based on selected period
+            if (days <= 7) {
+                document.getElementById('totalCostMonth').textContent = formatCost(actualCost);
+                document.getElementById('totalCostWeek').textContent = formatCost(actualCost);
+                // Update labels to reflect actual period
+                document.querySelector('#totalCostMonth').parentElement.querySelector('.stat-label').textContent = `Last ${days} Days`;
+                document.querySelector('#totalCostWeek').parentElement.querySelector('.stat-label').textContent = `Same Period`;
+            } else if (days <= 30) {
+                document.getElementById('totalCostMonth').textContent = formatCost(actualCost);
+                document.getElementById('totalCostWeek').textContent = formatCost(actualCost);
+                // Update labels
+                document.querySelector('#totalCostMonth').parentElement.querySelector('.stat-label').textContent = `Last ${days} Days`;
+                document.querySelector('#totalCostWeek').parentElement.querySelector('.stat-label').textContent = `Same Period`;
+            } else {
+                // For periods > 30 days, could show month vs week breakdown
+                document.getElementById('totalCostMonth').textContent = formatCost(actualCost);
+                document.getElementById('totalCostWeek').textContent = formatCost(actualCost);
+                document.querySelector('#totalCostMonth').parentElement.querySelector('.stat-label').textContent = `Last ${days} Days`;
+                document.querySelector('#totalCostWeek').parentElement.querySelector('.stat-label').textContent = `Total Period`;
+            }
+            
+            document.getElementById('avgCostPerRequest').textContent = formatCost(summary.cost_per_request);
+            document.getElementById('totalTokensMonth').textContent = formatTokens(summary.total_input_tokens + summary.total_output_tokens);
+        }
+
+        // Render cost analytics table with separate fresh AI vs cached sections
+        function renderCostTable(costData, summary) {
+            const container = document.getElementById('costContainer');
+            
+            if (!costData || costData.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        <div style="font-size: 3em; margin-bottom: 20px;">💰</div>
+                        <p>No cost data available for the selected period.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Separate fresh AI costs from cached responses
+            const freshData = costData.filter(row => row.request_type === 'fresh');
+            const cachedData = costData.filter(row => row.request_type === 'cached');
+            
+            let tableHtml = `
+                <div class="alert alert-success">
+                    <strong>💵 Total Spend:</strong> $${(summary.total_cost_usd || 0).toFixed(4)} | 
+                    <strong>📊 Total Requests:</strong> ${summary.total_requests || 0} | 
+                    <strong>🔤 Total Tokens:</strong> ${((summary.total_input_tokens || 0) + (summary.total_output_tokens || 0)).toLocaleString()}
+                </div>
+            `;
+            
+            // Fresh AI Processing Section
+            if (freshData.length > 0) {
+                const freshCost = freshData.reduce((sum, row) => sum + (row.total_cost || 0), 0);
+                const freshRequests = freshData.reduce((sum, row) => sum + (row.requests || 0), 0);
+                
+                tableHtml += `
+                    <h3 style="color: #dc3545; margin: 20px 0 10px 0;">🔥 Fresh AI Processing (Charged)</h3>
+                    <div class="alert alert-warning">
+                        <strong>💸 AI Costs:</strong> $${freshCost.toFixed(6)} for ${freshRequests} requests
+                    </div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Endpoint</th>
+                                <th>Requests</th>
+                                <th>Input Tokens</th>
+                                <th>Output Tokens</th>
+                                <th>Cost</th>
+                                <th>Avg Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                freshData.forEach(row => {
+                    const date = row.date || 'Unknown';
+                    const endpoint = row.endpoint || 'Unknown';
+                    const requests = (row.requests || 0).toLocaleString();
+                    const inputTokens = (row.total_input_tokens || 0).toLocaleString();
+                    const outputTokens = (row.total_output_tokens || 0).toLocaleString();
+                    const cost = (row.total_cost || 0).toFixed(6);
+                    const avgTime = (row.avg_processing_time || 0).toFixed(0);
+                    
+                    tableHtml += `
+                        <tr>
+                            <td>${date}</td>
+                            <td><code>${endpoint}</code></td>
+                            <td>${requests}</td>
+                            <td>${inputTokens}</td>
+                            <td>${outputTokens}</td>
+                            <td style="color: #dc3545; font-weight: bold;">$${cost}</td>
+                            <td>${avgTime}ms</td>
+                        </tr>
+                    `;
+                });
+                
+                tableHtml += `</tbody></table>`;
+            }
+            
+            // Cached Responses Section
+            if (cachedData.length > 0) {
+                const cachedRequests = cachedData.reduce((sum, row) => sum + (row.requests || 0), 0);
+                
+                tableHtml += `
+                    <h3 style="color: #28a745; margin: 20px 0 10px 0;">⚡ Cached Responses (Free)</h3>
+                    <div class="alert alert-info">
+                        <strong>💡 Cache Efficiency:</strong> ${cachedRequests} requests served from cache (no AI cost)
+                    </div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Endpoint</th>
+                                <th>Requests</th>
+                                <th>Input Tokens</th>
+                                <th>Output Tokens</th>
+                                <th>Cost</th>
+                                <th>Avg Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                cachedData.forEach(row => {
+                    const date = row.date || 'Unknown';
+                    const endpoint = row.endpoint || 'Unknown';
+                    const requests = (row.requests || 0).toLocaleString();
+                    const inputTokens = (row.total_input_tokens || 0).toLocaleString();
+                    const outputTokens = (row.total_output_tokens || 0).toLocaleString();
+                    const avgTime = (row.avg_processing_time || 0).toFixed(0);
+                    
+                    tableHtml += `
+                        <tr style="background: #f8fff8;">
+                            <td>${date}</td>
+                            <td><code>${endpoint}</code></td>
+                            <td>${requests}</td>
+                            <td>${inputTokens}</td>
+                            <td>${outputTokens}</td>
+                            <td style="color: #28a745; font-weight: bold;">$0.00</td>
+                            <td>${avgTime}ms</td>
+                        </tr>
+                    `;
+                });
+                
+                tableHtml += `</tbody></table>`;
+            }
+            
+            tableHtml += `
+                <div style="margin-top: 15px; color: #666; font-size: 14px;">
+                    <strong>Fresh AI:</strong> $0.10 per 1M input tokens, $0.40 per 1M output tokens | 
+                    <strong>Cached:</strong> Free (previously processed text)
+                </div>
+            `;
+            
+            container.innerHTML = tableHtml;
+        }
+
+        // Populate cost API key selector
+        function populateCostKeySelect() {
+            const select = document.getElementById('costApiKeyFilter');
+            if (apiKeys && apiKeys.length > 0) {
+                // Preserve current selection
+                const currentValue = select.value;
+                
+                // Clear and rebuild options
+                select.innerHTML = '<option value="">All API Keys</option>';
+                
+                apiKeys.forEach(key => {
+                    const option = document.createElement('option');
+                    option.value = key.key_id;
+                    option.textContent = `${key.name} (${key.key_id.substring(0, 12)}...)`;
+                    select.appendChild(option);
+                });
+                
+                // Restore previous selection if it still exists
+                if (currentValue) {
+                    select.value = currentValue;
+                }
+            }
+        }
+
+        // Export cost data as CSV
+        function exportCostData() {
+            const keyId = document.getElementById('costApiKeyFilter').value;
+            const days = document.getElementById('costPeriodFilter').value;
+            
+            const params = new URLSearchParams({ days });
+            if (keyId) params.append('key_id', keyId);
+            
+            // Open download in new window
+            window.open(`/api/cost-analytics?${params}&format=csv`, '_blank');
+        }
+
+        // Logs functionality
+        let logsAutoRefresh = false;
+        let logsRefreshInterval = null;
+
+        async function loadLogs() {
+            try {
+                const lines = document.getElementById('logLinesFilter').value;
+                const level = document.getElementById('logLevelFilter').value;
+                
+                const params = new URLSearchParams({ lines, level });
+                
+                const response = await fetch(`/api/logs?${params}`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    renderLogsTable(result.logs, result.log_info);
+                } else {
+                    showAlert('danger', `❌ Error loading logs: ${result.error}`);
+                }
+                
+            } catch (error) {
+                console.error('Error loading logs:', error);
+                showAlert('danger', '❌ Failed to load logs.');
+            }
+        }
+
+        function renderLogsTable(logs, logInfo) {
+            const container = document.getElementById('logsContainer');
+            
+            if (!logs || logs.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        <div style="font-size: 3em; margin-bottom: 20px;">📋</div>
+                        <p>No logs found for the selected criteria.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let logsHtml = `
+                <div class="alert alert-success">
+                    <strong>📊 Log Info:</strong> Showing ${logs.length} of ${logInfo.total_lines_in_file} total lines | 
+                    <strong>Filter:</strong> ${logInfo.filter_level} level | 
+                    <strong>File:</strong> ${logInfo.file}
+                </div>
+                
+                <div style="background: #2d3748; color: #e2e8f0; padding: 20px; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 13px; max-height: 600px; overflow-y: auto; white-space: pre-wrap; line-height: 1.4;">
+            `;
+            
+            logs.forEach(line => {
+                // Color-code log levels
+                let colorClass = '';
+                if (line.includes(' - ERROR - ')) {
+                    colorClass = 'style="color: #ff6b6b;"';
+                } else if (line.includes(' - WARNING - ')) {
+                    colorClass = 'style="color: #ffd93d;"';
+                } else if (line.includes(' - INFO - ')) {
+                    colorClass = 'style="color: #6bcf7f;"';
+                } else if (line.includes(' - DEBUG - ')) {
+                    colorClass = 'style="color: #74c0fc;"';
+                }
+                
+                // Escape HTML and preserve formatting
+                const escapedLine = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                logsHtml += `<div ${colorClass}>${escapedLine}</div>`;
+            });
+            
+            logsHtml += `
+                </div>
+                <div style="margin-top: 15px; color: #666; font-size: 14px;">
+                    🔴 Errors | 🟡 Warnings | 🟢 Info | 🔵 Debug | Last updated: ${new Date().toLocaleTimeString()}
+                </div>
+            `;
+            
+            container.innerHTML = logsHtml;
+        }
+
+        function downloadLogs() {
+            const lines = document.getElementById('logLinesFilter').value;
+            const level = document.getElementById('logLevelFilter').value;
+            
+            const params = new URLSearchParams({ lines, level, format: 'raw' });
+            
+            // Open download in new window
+            window.open(`/api/logs?${params}`, '_blank');
+        }
+
+        function toggleAutoRefresh() {
+            const btn = document.getElementById('autoRefreshBtn');
+            
+            if (logsAutoRefresh) {
+                // Stop auto-refresh
+                clearInterval(logsRefreshInterval);
+                logsAutoRefresh = false;
+                btn.textContent = '▶️ Auto-Refresh';
+                btn.style.background = '#28a745';
+            } else {
+                // Start auto-refresh every 10 seconds
+                logsRefreshInterval = setInterval(loadLogs, 10000);
+                logsAutoRefresh = true;
+                btn.textContent = '⏸️ Auto-Refresh';
+                btn.style.background = '#ffc107';
+            }
+        }
+
+        // Filter logs when dropdown changes
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('logLinesFilter').addEventListener('change', function() {
+                loadLogs();
+            });
+            
+            document.getElementById('logLevelFilter').addEventListener('change', function() {
+                loadLogs();
+            });
+        });
+
+        // Auto-refresh disabled temporarily due to SQL binding issue
+        // setInterval(() => {
+        //     loadQuickStats();
+        // }, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+[Unit]
+Description=AppenCorrect (Waitress on :5006 - Optimized)
+After=network.target
+
+[Service]
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/home/ec2-user/apps/AppenCorrect
+EnvironmentFile=/home/ec2-user/apps/AppenCorrect/.env
+ExecStart=/home/ec2-user/apps/AppenCorrect/start_service_dynamic.sh
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
