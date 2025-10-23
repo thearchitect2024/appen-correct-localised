@@ -42,21 +42,12 @@ except ImportError:
     LANGDETECT_AVAILABLE = False
 
 try:
-    from gemini_api import call_gemini_api
-except ImportError:
-    call_gemini_api = None
-
-try:
-    from openai_api import call_openai_api
-except ImportError:
-    call_openai_api = None
-
-try:
     from vllm_client import create_vllm_client
     VLLM_AVAILABLE = True
 except ImportError:
     VLLM_AVAILABLE = False
     create_vllm_client = None
+    raise ImportError("vLLM client module is required. Install with: pip install vllm")
 
 
 @dataclass
@@ -66,7 +57,7 @@ class Correction:
     position: Tuple[int, int]  # (start, end)
     original: str
     suggestion: str
-    source: str  # 'gemini'
+    source: str  # 'vllm'
     
     def to_dict(self):
         """Convert correction to dictionary for JSON serialization."""
@@ -179,20 +170,17 @@ class AppenCorrect:
     AI-first AppenCorrect implementation with language detection and language-specific rules.
     """
     
-    def __init__(self, language='en_US', gemini_api_key=None, gemini_model='gemini-2.5-flash-lite', 
-                 language_detector='langdetect', custom_instructions=None, 
-                 use_vllm=False, vllm_url=None, vllm_model=None):
+    def __init__(self, language='en_US', vllm_url=None, vllm_model=None,
+                 language_detector='langdetect', custom_instructions=None):
         """
-        Initialize AppenCorrect with AI-first configuration and language detection.
+        Initialize AppenCorrect with vLLM local GPU inference.
         
         Args:
             language: Language code (e.g. 'en_US', 'es_ES') - kept for compatibility
-            gemini_api_key: Gemini API key for Google's Gemini flash-lite (if not using vLLM)
-            use_vllm: Use local vLLM instead of Gemini API
-            vllm_url: vLLM server URL (default: http://localhost:8000)
-            vllm_model: vLLM model name (default: Qwen/Qwen2.5-7B-Instruct)
-            gemini_model: Gemini model name (default: gemini-2.5-flash-lite)
+            vllm_url: vLLM server URL (default: http://localhost:8000 or from VLLM_URL env)
+            vllm_model: vLLM model name (default: Qwen/Qwen2.5-7B-Instruct or from VLLM_MODEL env)
             language_detector: Language detection library to use ('lingua', 'langdetect', or 'disabled')
+            custom_instructions: Optional custom instructions for specific use cases
         """
         self.language = language
         
@@ -202,64 +190,21 @@ class AppenCorrect:
         # Initialize custom instructions
         self.custom_instructions = custom_instructions or {}
         
-        # Check if vLLM should be used (from parameter or environment)
-        use_vllm = use_vllm or os.getenv('USE_VLLM', 'false').lower() == 'true'
+        # Initialize vLLM client (REQUIRED)
+        if not VLLM_AVAILABLE:
+            raise RuntimeError("vLLM client module not available. Install with: pip install vllm")
         
-        # Initialize vLLM client if requested
-        self.vllm_client = None
-        if use_vllm:
-            if not VLLM_AVAILABLE:
-                self.logger.error("vLLM requested but vllm_client module not available")
-                use_vllm = False
-            else:
-                try:
-                    self.vllm_client = create_vllm_client(
-                        base_url=vllm_url or os.getenv('VLLM_URL', 'http://localhost:8000'),
-                        model=vllm_model or os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-7B-Instruct')
-                    )
-                    self.api_type = 'vllm'
-                    self.selected_model = self.vllm_client.model
-                    self.logger.info(f"✓ vLLM client initialized - URL: {self.vllm_client.base_url}, Model: {self.selected_model}")
-                except Exception as e:
-                    self.logger.error(f"Failed to initialize vLLM client: {e}")
-                    use_vllm = False
-        
-        # If not using vLLM, use Gemini/OpenAI
-        if not use_vllm:
-            # Get model configuration from environment
-            self.selected_model = get_env_var('OPENAI_MODEL', 'gemini-2.5-flash-lite')
-            
-            # Set up API keys and model based on selected model
-            # Check for Gemini first to avoid conflict with models like "gemini-2.5-flash-lite" that contain "mini"
-            if 'gemini' in self.selected_model.lower():
-                # Use Gemini API  
-                self.api_type = 'gemini'
-                self.gemini_api_key = gemini_api_key or get_env_var('GEMINI_API_KEY')
-                self.gemini_model = self.selected_model
-                self.openai_api_key = None
-                self.openai_model = None
-                
-                # Debug API key availability
-                if self.gemini_api_key:
-                    self.logger.debug(f"🔑 Gemini API key loaded: {len(self.gemini_api_key)} chars, starts with {self.gemini_api_key[:10]}...")
-                    self._had_key_at_init = True
-                else:
-                    self.logger.warning(f"🚨 Gemini API key missing during init - env check: {bool(get_env_var('GEMINI_API_KEY'))}")
-                    self._had_key_at_init = False
-            elif 'mini' in self.selected_model.lower() or 'gpt' in self.selected_model.lower() or 'o1' in self.selected_model.lower() or 'o3' in self.selected_model.lower() or 'o4' in self.selected_model.lower():
-                # Use OpenAI API for OpenAI models (gpt, o1, o3, o4, and any with "mini" that aren't Gemini)
-                self.api_type = 'openai'
-                self.openai_api_key = os.getenv('OPENAI_API_KEY')
-                self.gemini_api_key = None
-                self.gemini_model = None
-                self.openai_model = self.selected_model
-            else:
-                # Default to Gemini for backwards compatibility
-                self.api_type = 'gemini'
-                self.gemini_api_key = gemini_api_key or get_env_var('GEMINI_API_KEY')
-                self.gemini_model = gemini_model or os.getenv('GEMINI_MODEL', 'gemini-2.5-flash-lite')
-                self.openai_api_key = None
-                self.openai_model = None
+        try:
+            self.vllm_client = create_vllm_client(
+                base_url=vllm_url or os.getenv('VLLM_URL', 'http://localhost:8000'),
+                model=vllm_model or os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-7B-Instruct')
+            )
+            self.api_type = 'vllm'
+            self.selected_model = self.vllm_client.model
+            self.logger.info(f"✓ vLLM client initialized - URL: {self.vllm_client.base_url}, Model: {self.selected_model}")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize vLLM client: {e}")
+            raise RuntimeError(f"vLLM initialization failed: {e}. Ensure vLLM server is running at {vllm_url or os.getenv('VLLM_URL', 'http://localhost:8000')}")
         
         self.language_detector = language_detector
         
@@ -278,28 +223,13 @@ class AppenCorrect:
         # Initialize language detector
         self.lang_detector = self._init_language_detector()
         
-        # Test API connection and store detailed status
-        self.api_unavailable_reason = None  # Store why API is not available
-        if self.api_type == 'vllm':
-            # Test vLLM connection
-            self.api_available = self.vllm_client.test_connection()
-            if not self.api_available:
-                self.api_unavailable_reason = f"vLLM server not reachable at {self.vllm_client.base_url}"
-                self.logger.error(f"vLLM API unavailable: {self.api_unavailable_reason}")
-        elif self.api_type == 'openai':
-            if not self.openai_api_key:
-                self.api_available = False
-                self.api_unavailable_reason = "OpenAI API key not provided (check OPENAI_API_KEY environment variable)"
-                self.logger.error(f"OpenAI API unavailable: {self.api_unavailable_reason}")
-            else:
-                self.api_available, self.api_unavailable_reason = self._test_openai_connection_detailed()
-        else:  # gemini
-            if not self.gemini_api_key:
-                self.api_available = False
-                self.api_unavailable_reason = "Gemini API key not provided (check GEMINI_API_KEY environment variable)"
-                self.logger.error(f"Gemini API unavailable: {self.api_unavailable_reason}")
-            else:
-                self.api_available, self.api_unavailable_reason = self._test_gemini_connection_detailed()
+        # Test vLLM connection
+        self.api_unavailable_reason = None
+        self.api_available = self.vllm_client.test_connection()
+        if not self.api_available:
+            self.api_unavailable_reason = f"vLLM server not reachable at {self.vllm_client.base_url}"
+            self.logger.error(f"vLLM server unavailable: {self.api_unavailable_reason}")
+            raise RuntimeError(f"Cannot connect to vLLM server at {self.vllm_client.base_url}. Start it with: ./start_vllm_server.sh")
         
         if self.api_available:
             self.logger.info(f"{self.api_type.upper()} API connection successful - Model: {self.selected_model}")
@@ -313,19 +243,12 @@ class AppenCorrect:
         self.cache_max_size = 1000  # Limit cache size to prevent memory issues
         self.cache_hits_threshold = 5  # Clear cache after 5 uses to keep it fresh
         
-        # Keep old attributes for backwards compatibility
-        self.gemini_available = self.api_available if self.api_type == 'gemini' else False
-        self.gemini_unavailable_reason = self.api_unavailable_reason if self.api_type == 'gemini' else None
-        self.gemini_cache = self.api_cache
-        
         # Statistics tracking
         self.stats = {
             'total_processed': 0,
-            'api_corrections': 0,
+            'vllm_corrections': 0,
             'cache_hits': 0,
-            'language_detections': 0,
-            # Keep for backwards compatibility
-            'gemini_corrections': 0
+            'language_detections': 0
         }
     
     def _init_language_detector(self):
@@ -668,134 +591,6 @@ class AppenCorrect:
         
         return rules_text
     
-    def _test_gemini_connection(self) -> bool:
-        """Test connection to Gemini API."""
-        if not call_gemini_api:
-            self.logger.info("Gemini API module not available")
-            return False
-            
-        if not self.gemini_api_key:
-            self.logger.info("Gemini API key not provided")
-            return False
-            
-        try:
-            # Test with a simple message using normal parameters for reliable connection test
-            test_response = call_gemini_api(
-                messages=[{"content": "Hello"}],
-                api_key=self.gemini_api_key,
-                model=self.gemini_model,
-                max_retries=2,
-                quick_mode=False  # Use normal mode for reliable connection test
-            )
-            
-            
-            
-            return bool(test_response.get('text'))
-        except Exception as e:
-            self.logger.info(f"Gemini not available: {e}")
-            return False
-    
-    def _test_openai_connection_detailed(self) -> Tuple[bool, str]:
-        """Test connection to OpenAI API and return detailed status."""
-        if not call_openai_api:
-            reason = "OpenAI API module not available (openai_api.py import failed)"
-            self.logger.error(f"OpenAI connection test failed: {reason}")
-            return False, reason
-            
-        if not self.openai_api_key:
-            reason = "API key not provided (check OPENAI_API_KEY environment variable)"
-            self.logger.error(f"OpenAI connection test failed: {reason}")
-            return False, reason
-            
-        try:
-            self.logger.info(f"Testing OpenAI API connection with model: {self.openai_model}")
-            
-            # Test with a simple message using normal parameters for reliable connection test
-            test_response = call_openai_api(
-                messages=[{"role": "user", "content": "Hello"}],
-                api_key=self.openai_api_key,
-                model=self.openai_model,
-                max_retries=2,
-                max_tokens=10,
-                temperature=0.1
-            )
-            
-            if test_response and hasattr(test_response, 'choices') and test_response.choices:
-                self.logger.info("OpenAI API connection test successful")
-                return True, None
-            else:
-                reason = f"API call succeeded but returned empty response: {test_response}"
-                self.logger.error(f"OpenAI connection test failed: {reason}")
-                return False, reason
-                
-        except Exception as e:
-            # More detailed error categorization
-            error_str = str(e).lower()
-            
-            if 'api_key' in error_str or 'authentication' in error_str or 'unauthorized' in error_str:
-                reason = f"Authentication failed - invalid API key: {e}"
-            elif 'quota' in error_str or 'limit' in error_str:
-                reason = f"API quota/rate limit exceeded: {e}"
-            elif 'network' in error_str or 'connection' in error_str or 'timeout' in error_str:
-                reason = f"Network connection issue: {e}"
-            elif 'model' in error_str:
-                reason = f"Model '{self.openai_model}' not available or invalid: {e}"
-            else:
-                reason = f"API call failed with error: {e}"
-            
-            self.logger.error(f"OpenAI connection test failed: {reason}")
-            return False, reason
-
-    def _test_gemini_connection_detailed(self) -> Tuple[bool, str]:
-        """Test connection to Gemini API and return detailed status."""
-        if not call_gemini_api:
-            reason = "Gemini API module not available (gemini_api.py import failed)"
-            self.logger.error(f"Gemini connection test failed: {reason}")
-            return False, reason
-            
-        if not self.gemini_api_key:
-            reason = "API key not provided (check GEMINI_API_KEY environment variable)"
-            self.logger.error(f"Gemini connection test failed: {reason}")
-            return False, reason
-            
-        try:
-            self.logger.info(f"Testing Gemini API connection with model: {self.gemini_model}")
-            
-            # Test with a simple message using normal parameters for reliable connection test
-            test_response = call_gemini_api(
-                messages=[{"content": "Hello"}],
-                api_key=self.gemini_api_key,
-                model=self.gemini_model,
-                max_retries=2,
-                quick_mode=False  # Use normal mode for reliable connection test
-            )
-            
-            if test_response and test_response.get('text'):
-                self.logger.info("Gemini API connection test successful")
-                return True, None
-            else:
-                reason = f"API call succeeded but returned empty response: {test_response}"
-                self.logger.error(f"Gemini connection test failed: {reason}")
-                return False, reason
-                
-        except Exception as e:
-            # More detailed error categorization
-            error_str = str(e).lower()
-            
-            if 'api_key' in error_str or 'authentication' in error_str or 'unauthorized' in error_str:
-                reason = f"Authentication failed - invalid API key: {e}"
-            elif 'quota' in error_str or 'limit' in error_str:
-                reason = f"API quota/rate limit exceeded: {e}"
-            elif 'network' in error_str or 'connection' in error_str or 'timeout' in error_str:
-                reason = f"Network connection issue: {e}"
-            elif 'model' in error_str:
-                reason = f"Model '{self.gemini_model}' not available or invalid: {e}"
-            else:
-                reason = f"API call failed with error: {e}"
-            
-            self.logger.error(f"Gemini connection test failed: {reason}")
-            return False, reason
-    
     def process_text(self, text: str, options: Optional[Dict[str, bool]] = None, language: Optional[str] = None, use_case: Optional[str] = None) -> Dict[str, Any]:
         """
         AI-first processing pipeline with language detection and language-specific rules.
@@ -826,9 +621,7 @@ class AppenCorrect:
                     'api_available': False,
                     'api_type': self.api_type,
                     'ai_first_mode': True,
-                    'unavailable_reason': self.api_unavailable_reason,
-                    # Keep backwards compatibility
-                    'gemini_available': self.api_available if self.api_type == 'gemini' else False
+                    'unavailable_reason': self.api_unavailable_reason
                 }
             }
         
@@ -864,10 +657,7 @@ class AppenCorrect:
         # Update statistics
         self.stats['total_processed'] += 1
         if all_corrections:
-            self.stats['api_corrections'] += 1
-            # Keep for backwards compatibility
-            if self.api_type == 'gemini':
-                self.stats['gemini_corrections'] += 1
+            self.stats['vllm_corrections'] += 1
         
         # Prepare response
         result = {
@@ -1083,29 +873,6 @@ If no spelling errors: {"corrected_text": "[original text]", "corrections": []}"
                     temperature=0.2
                 )
                 response = {'text': generated_text} if generated_text else None
-            elif self.api_type == 'gemini':
-                response = call_gemini_api(
-                messages=[{"content": user_message}],
-                system_message=system_message,
-                api_key=self.gemini_api_key,
-                model=self.gemini_model,
-                max_retries=2,
-                timeout=15,
-                quick_mode=False
-            )
-            elif self.api_type == 'openai':
-                response = call_openai_api(
-                    messages=[{"role": "user", "content": user_message}],
-                    system_message=system_message,
-                    api_key=self.openai_api_key,
-                    model=self.openai_model,
-                    max_retries=2,
-                    max_tokens=1000,
-                    temperature=0.1,
-                    timeout=30
-                )
-            else:
-                raise Exception(f"Unsupported API type: {self.api_type}")
             
             if not response or not response.get('text'):
                 self.logger.warning(f"Empty response from {self.api_type.upper()} API for spelling check")
@@ -1272,49 +1039,6 @@ Only flag actual mistakes, never valid regional variants."""
                     corrections = self._parse_complete_correction_response(generated_text, text)
                 else:
                     corrections = []
-                    
-            elif self.api_type == 'openai':
-                self.logger.debug(f"🤖 Calling OpenAI API - Model: {self.openai_model}, Language: {detected_language or 'unknown'}")
-                response = call_openai_api(
-                    messages=[{"role": "user", "content": user_message}],
-                    api_key=self.openai_api_key,
-                    system_message=system_message,
-                    model=self.openai_model,
-                    max_retries=2,
-                    max_tokens=1000,
-                    temperature=0.1,
-                    timeout=30
-                )
-                
-                if response and hasattr(response, 'choices') and response.choices:
-                    response_text = response.choices[0].message.content
-                    corrections = self._parse_complete_correction_response(response_text, text)
-                else:
-                    corrections = []
-                    
-            else:  # gemini
-                self.logger.debug(f"🤖 Calling Gemini API - Model: {self.gemini_model}, Language: {detected_language or 'unknown'}")
-                
-                # Debug API key right before call
-                if not self.gemini_api_key:
-                    self.logger.error(f"🚨 API key missing at call time - init had key: {hasattr(self, '_had_key_at_init')}")
-                else:
-                    self.logger.debug(f"🔑 API key present: {len(self.gemini_api_key)} chars")
-                
-                response = call_gemini_api(
-                    messages=[{"content": user_message}],
-                    api_key=self.gemini_api_key,
-                    system_message=system_message,
-                    model=self.gemini_model,
-                    max_retries=2,  # Restored retries
-                    timeout=30,     # Increased to 30 seconds
-                    quick_mode=False # Disable quick mode for reliability
-                )
-                
-                if response and response.get('text'):
-                    corrections = self._parse_complete_correction_response(response['text'], text)
-                else:
-                    corrections = []
             
             # Cache the result with smart cache management
             if self.cache_enabled:
@@ -1440,138 +1164,6 @@ Only flag actual mistakes, never valid regional variants."""
 
         
         return corrections
-    
-    async def _call_gemini_async(self, messages, system_message, model, max_retries=2, timeout=30):
-        """Async wrapper for Gemini API calls to prevent thread blocking."""
-        loop = asyncio.get_event_loop()
-        
-        # Run the blocking call_gemini_api in a thread pool
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            future = executor.submit(
-                call_gemini_api,
-                messages=messages,
-                api_key=self.gemini_api_key,
-                system_message=system_message,
-                model=model,
-                max_retries=max_retries,
-                timeout=timeout,
-                quick_mode=False
-            )
-            
-            try:
-                # Wait for the result with timeout
-                response = await asyncio.wait_for(
-                    loop.run_in_executor(None, future.result),
-                    timeout=timeout + 5  # Extra 5 seconds for safety
-                )
-                return response
-            except asyncio.TimeoutError:
-                self.logger.warning(f"Async Gemini API call timed out after {timeout + 5}s")
-                return None
-            except Exception as e:
-                self.logger.error(f"Async Gemini API call failed: {e}")
-                return None
-    
-    def _comprehensive_ai_check_async(self, text: str, language_override: Optional[str] = None, use_case: Optional[str] = None) -> List[Correction]:
-        """Async version of comprehensive AI check to prevent thread blocking."""
-        try:
-            # Run the async call
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-            try:
-                return loop.run_until_complete(self._run_ai_check_async(text, language_override, use_case))
-            finally:
-                loop.close()
-                
-        except Exception as e:
-            self.logger.error(f"Async AI check failed, falling back to sync: {e}")
-            # Fallback to synchronous version
-            return self._comprehensive_ai_check(text, language_override, use_case)
-    
-    async def _run_ai_check_async(self, text: str, language_override: Optional[str] = None, use_case: Optional[str] = None) -> List[Correction]:
-        """Internal async implementation of AI check."""
-        # This would contain the same logic as _comprehensive_ai_check but with async calls
-        # For now, let's implement a simpler version that uses the async Gemini wrapper
-        
-        # Detect language
-        detected_language = self._detect_language(text)
-        language_rules = self._get_language_rules(detected_language)
-        
-        # Build system message (same as sync version)
-        language_instruction = ""
-        if language_override:
-            sanitized_language = self._sanitize_language_parameter(language_override)
-            if sanitized_language:
-                language_instruction = f"""
-
-LANGUAGE/DIALECT CONTEXT: The text should be corrected using {sanitized_language} conventions.
-- DO NOT flag regional spelling variants as errors (e.g., "realise" vs "realize", "colour" vs "color")
-- ONLY suggest corrections that align with {sanitized_language} if the word is actually misspelled
-- If a word is correctly spelled in ANY English variant, do not mark it as an error"""
-        
-        system_message = f"""You are an expert proofreader. Find ONLY actual spelling mistakes, grammar errors, and style issues.
-
-CRITICAL RULES:
-1. Regional spelling variants are NOT errors (British: realise/colour, American: realize/color)
-2. Only flag words that are actually misspelled or grammatically incorrect
-3. Do not "correct" valid words to different regional variants{language_instruction}
-
-CRITICAL: Respond with VALID JSON only. Follow this EXACT format:
-
-{{
-  "corrected_text": "the fully corrected text",
-  "corrections": [
-    {{
-      "original": "exact word/phrase with error",
-      "suggestion": "corrected version", 
-      "type": "spelling"
-    }},
-    {{
-      "original": "another error",
-      "suggestion": "corrected version",
-      "type": "grammar"
-    }}
-  ]
-}}
-
-JSON REQUIREMENTS (CRITICAL):
-- Use double quotes for ALL strings
-- Add commas between array elements  
-- NO trailing commas after last element
-- NO extra text outside JSON
-- Escape quotes inside strings with backslash
-- Test your JSON is valid before responding
-
-If no errors found: {{"corrected_text": "[original text]", "corrections": []}}
-
-EXAMPLES:
-- "realise" in British context: NOT an error
-- "realize" in American context: NOT an error  
-- "realis" in any context: IS an error → "realise" or "realize"
-- "teh": IS an error → "the"
-
-Only flag actual mistakes, never valid regional variants."""
-        
-        # Add language rules
-        system_message += language_rules
-        
-        user_message = f"Fix all errors in this text:\n\n{text}"
-        
-        # Make async API call
-        if self.api_type == 'gemini':
-            response = await self._call_gemini_async(
-                messages=[{"content": user_message}],
-                system_message=system_message,
-                model=self.gemini_model,
-                max_retries=2,
-                timeout=30
-            )
-            
-            if response and response.get('text'):
-                return self._parse_complete_correction_response(response['text'], text)
-        
-        return []
     
     def _clean_json_response(self, response: str) -> str:
         """Clean common JSON formatting issues in AI responses."""
@@ -1880,7 +1472,7 @@ Only flag actual mistakes, never valid regional variants."""
         """Get current processing statistics."""
         return {
             'total_processed': self.stats['total_processed'],
-            'api_corrections': self.stats['api_corrections'],
+            'vllm_corrections': self.stats['vllm_corrections'],
             'cache_hits': self.stats['cache_hits'],
             'language_detections': self.stats['language_detections'],
             'api_available': self.api_available,
@@ -1888,53 +1480,24 @@ Only flag actual mistakes, never valid regional variants."""
             'api_unavailable_reason': self.api_unavailable_reason,
             'language_detector_available': self.lang_detector is not None,
             'cache_size': len(self.api_cache),
-            'cache_enabled': self.cache_enabled,
-            # Keep for backwards compatibility
-            'gemini_corrections': self.stats['gemini_corrections'],
-            'gemini_available': self.gemini_available,
-            'gemini_unavailable_reason': self.gemini_unavailable_reason
+            'cache_enabled': self.cache_enabled
         }
     
     def get_api_status(self) -> Dict[str, Any]:
-        """Get detailed API status for debugging."""
-        if self.api_type == 'openai':
-            return {
-                'api_type': 'openai',
-                'available': self.api_available,
-                'unavailable_reason': self.api_unavailable_reason,
-                'api_key_present': bool(self.openai_api_key),
-                'api_key_length': len(self.openai_api_key) if self.openai_api_key else 0,
-                'model': self.openai_model,
-                'call_openai_api_available': call_openai_api is not None
-            }
-        else:  # gemini
-            return {
-                'api_type': 'gemini',
-                'available': self.api_available,
-                'unavailable_reason': self.api_unavailable_reason,
-                'api_key_present': bool(self.gemini_api_key),
-                'api_key_length': len(self.gemini_api_key) if self.gemini_api_key else 0,
-                'model': self.gemini_model,
-                'call_gemini_api_available': call_gemini_api is not None
-            }
-    
-    def get_gemini_status(self) -> Dict[str, Any]:
-        """Get detailed Gemini API status for debugging (backwards compatibility)."""
+        """Get detailed vLLM API status for debugging."""
         return {
-            'available': self.gemini_available,
-            'unavailable_reason': self.gemini_unavailable_reason,
-            'api_key_present': bool(self.gemini_api_key),
-            'api_key_length': len(self.gemini_api_key) if self.gemini_api_key else 0,
-            'model': self.gemini_model,
-            'call_gemini_api_available': call_gemini_api is not None
+            'api_type': 'vllm',
+            'available': self.api_available,
+            'unavailable_reason': self.api_unavailable_reason,
+            'url': self.vllm_client.base_url if self.vllm_client else None,
+            'model': self.selected_model,
+            'vllm_available': VLLM_AVAILABLE
         }
     
     def clear_cache(self) -> None:
-        """Clear the API response cache."""
+        """Clear the vLLM API response cache."""
         self.api_cache.clear()
-        # Keep backwards compatibility
-        self.gemini_cache.clear()
-        self.logger.info(f"{self.api_type.upper()} cache cleared")
+        self.logger.info("vLLM cache cleared")
     
     def set_cache_enabled(self, enabled: bool) -> None:
         """Enable or disable caching for testing purposes."""
@@ -1942,12 +1505,10 @@ Only flag actual mistakes, never valid regional variants."""
         self.logger.info(f"{self.api_type.upper()} cache {'enabled' if enabled else 'disabled'}")
         
     def disable_cache(self) -> None:
-        """Disable caching and clear existing cache - useful for model comparison testing."""
+        """Disable caching and clear existing cache - useful for testing."""
         self.cache_enabled = False
         self.api_cache.clear()
-        # Keep backwards compatibility
-        self.gemini_cache.clear()
-        self.logger.info(f"{self.api_type.upper()} cache disabled and cleared for testing")
+        self.logger.info("vLLM cache disabled and cleared for testing")
         
     def enable_cache(self) -> None:
         """Re-enable caching."""
@@ -2090,54 +1651,25 @@ Return ONLY valid JSON:
                 self.cache_access_counts[cache_key] = self.cache_access_counts.get(cache_key, 0) + 1
                 return self.api_cache[cache_key]
             
-            # Call appropriate API for quality assessment
-            if self.api_type == 'openai':
-                self.logger.debug(f"🎯 Calling OpenAI for comment quality assessment - Model: {self.openai_model}")
-                response = call_openai_api(
-                    messages=[{"role": "user", "content": user_message}],
-                    api_key=self.openai_api_key,
-                    system_message=system_message,
-                    model=self.openai_model,
-                    max_retries=2,
-                    max_tokens=1000,
-                    temperature=0.1,
-                    timeout=10
-                )
-                
-                if response and hasattr(response, 'choices') and response.choices:
-                    response_text = response.choices[0].message.content
-                    quality_result = self._parse_quality_assessment_response(response_text, comment, corrections)
-                else:
-                    quality_result = {
-                        'status': 'error',
-                        'message': 'No response from OpenAI quality assessment',
-                        'quality_score': None,
-                        'quality_level': None,
-                        'assessment': None
-                    }
-                    
-            else:  # gemini
-                self.logger.debug(f"🎯 Calling Gemini for comment quality assessment - Model: {self.gemini_model}")
-                response = call_gemini_api(
-                    messages=[{"content": user_message}],
-                    api_key=self.gemini_api_key,
-                    system_message=system_message,
-                    model=self.gemini_model,
-                    max_retries=2,
-                    timeout=30,
-                    quick_mode=False
-                )
-                
-                if response and response.get('text'):
-                    quality_result = self._parse_quality_assessment_response(response['text'], comment, corrections)
-                else:
-                    quality_result = {
-                        'status': 'error',
-                        'message': 'No response from Gemini quality assessment',
-                        'quality_score': None,
-                        'quality_level': None,
-                        'assessment': None
-                    }
+            # Call vLLM for quality assessment
+            self.logger.debug(f"🎯 Calling vLLM for comment quality assessment - Model: {self.vllm_client.model}")
+            prompt = f"{system_message}\n\n{user_message}"
+            generated_text = self.vllm_client.generate(
+                prompt=prompt,
+                max_tokens=1024,
+                temperature=0.2
+            )
+            
+            if generated_text:
+                quality_result = self._parse_quality_assessment_response(generated_text, comment, corrections)
+            else:
+                quality_result = {
+                    'status': 'error',
+                    'message': 'No response from vLLM quality assessment',
+                    'quality_score': None,
+                    'quality_level': None,
+                    'assessment': None
+                }
             
             # Cache the result with smart cache management
             if self.cache_enabled and quality_result.get('status') == 'success':
