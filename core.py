@@ -640,7 +640,8 @@ class AppenCorrect:
                 'statistics': {
                     'total_errors': 0,
                     'processing_time': f"{time.time() - start_time:.3f}s",
-                    'gemini_available': self.gemini_available,
+                    'api_available': self.api_available,
+                    'api_type': self.api_type,
                     'ai_first_mode': True
                 }
             }
@@ -683,9 +684,7 @@ class AppenCorrect:
                 'api_available': self.api_available,
                 'api_type': self.api_type,
                 'ai_first_mode': True,
-                'detected_language': self.detect_language(text) if len(text) >= 10 else None,
-                # Keep for backwards compatibility
-                'gemini_available': self.gemini_available
+                'detected_language': self.detect_language(text) if len(text) >= 10 else None
             }
         }
         
@@ -736,8 +735,7 @@ class AppenCorrect:
                     'processing_time': '0.000s',  # Will be updated by caller
                     'detected_language': self.detect_language(text) if len(text) >= 10 else None,
                     'api_type': self.api_type,
-                    'api_available': self.api_available,
-                    'gemini_available': self.gemini_available if hasattr(self, 'gemini_available') else False
+                    'api_available': self.api_available
                 }
             }
             
