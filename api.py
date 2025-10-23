@@ -13,7 +13,6 @@ from flask import Flask, request, jsonify, render_template, session, redirect, u
 from flask_cors import CORS
 from jsonschema import validate, ValidationError
 from core import AppenCorrect
-from gemini_api import test_gemini_connection
 from api_auth import require_api_key, track_api_usage, get_api_key_manager
 from auth import require_auth, authenticate_user, create_session, logout_user, render_login_page, is_authenticated, create_user, render_forgot_password_page, render_reset_password_page, generate_password_reset_token, verify_reset_token, reset_password_with_token
 from email_service import send_password_reset_email, test_email_configuration
@@ -103,7 +102,7 @@ class AppenCorrectAPI:
             # Fallback for non-authenticated requests (demo endpoints)
             if self._checker is None:
                 self._checker = AppenCorrect()
-                logger.info(f"Flask API initialized - Gemini model: {self._checker.gemini_model}")
+                logger.info(f"Flask API initialized - vLLM model: {self._checker.vllm_client.model}")
             return self._checker
     
     def health_check(self):
@@ -111,34 +110,30 @@ class AppenCorrectAPI:
         try:
             checker = self._get_checker()
             
-            # Test Gemini connection with checker's API key
+            # Test vLLM connection
             try:
-                gemini_status = test_gemini_connection()
-                # If basic test fails but we know it's working from recent requests, mark as available
-                if not gemini_status:
-                    # Check if we have a working checker instance
-                    if hasattr(checker, 'gemini_api_key') and checker.gemini_api_key:
-                        gemini_status = True
-            except Exception:
-                gemini_status = True  # Assume available if recent API calls worked
+                vllm_status = checker.vllm_client.test_connection()
+            except Exception as e:
+                logger.warning(f"vLLM connection test failed: {e}")
+                vllm_status = False
             
             # Test email service configuration
             email_status, email_message = test_email_configuration()
             
             # Component status
             components = {
-                'gemini_ai': 'available' if gemini_status else 'unavailable',
+                'vllm_inference': 'available' if vllm_status else 'unavailable',
                 'language_detector': 'available',  # Always available
                 'ai_first_mode': 'enabled',
                 'email_service': 'available' if email_status else 'unavailable'
             }
             
-            overall_status = 'healthy' if gemini_status else 'degraded'
+            overall_status = 'healthy' if vllm_status else 'degraded'
             
             return jsonify({
                 'status': overall_status,
                 'timestamp': datetime.utcnow().isoformat(),
-                'version': '2.0.0',
+                'version': '2.0.0-vllm',
                 'components': components,
                 'capabilities': ['spelling', 'grammar', 'language_detection', 'ai_correction']
             })
@@ -386,7 +381,7 @@ class AppenCorrectAPI:
                             SUM(COALESCE(output_tokens, 0)) as total_output_tokens,
                             SUM(COALESCE(estimated_cost_usd, 0)) as total_cost,
                             AVG(COALESCE(processing_time_ms, 0)) as avg_processing_time,
-                            COALESCE(model_used, 'gemini-2.5-flash-lite') as model_used,
+                            COALESCE(model_used, 'Qwen/Qwen2.5-7B-Instruct') as model_used,
                             'fresh' as request_type
                         FROM api_usage 
                         WHERE key_id = ? AND timestamp >= ? AND timestamp <= ? 
@@ -405,7 +400,7 @@ class AppenCorrectAPI:
                             SUM(COALESCE(output_tokens, 0)) as total_output_tokens,
                             0 as total_cost,
                             AVG(COALESCE(processing_time_ms, 0)) as avg_processing_time,
-                            COALESCE(model_used, 'gemini-2.5-flash-lite') as model_used,
+                            COALESCE(model_used, 'Qwen/Qwen2.5-7B-Instruct') as model_used,
                             'cached' as request_type
                         FROM api_usage 
                         WHERE key_id = ? AND timestamp >= ? AND timestamp <= ? 
@@ -441,7 +436,7 @@ class AppenCorrectAPI:
                             SUM(COALESCE(output_tokens, 0)) as total_output_tokens,
                             SUM(COALESCE(estimated_cost_usd, 0)) as total_cost,
                             AVG(COALESCE(processing_time_ms, 0)) as avg_processing_time,
-                            COALESCE(model_used, 'gemini-2.5-flash-lite') as model_used,
+                            COALESCE(model_used, 'Qwen/Qwen2.5-7B-Instruct') as model_used,
                             'fresh' as request_type
                         FROM api_usage 
                         WHERE timestamp >= ? AND timestamp <= ? 
@@ -461,7 +456,7 @@ class AppenCorrectAPI:
                             SUM(COALESCE(output_tokens, 0)) as total_output_tokens,
                             0 as total_cost,
                             AVG(COALESCE(processing_time_ms, 0)) as avg_processing_time,
-                            COALESCE(model_used, 'gemini-2.5-flash-lite') as model_used,
+                            COALESCE(model_used, 'Qwen/Qwen2.5-7B-Instruct') as model_used,
                             'cached' as request_type
                         FROM api_usage 
                         WHERE timestamp >= ? AND timestamp <= ? 
@@ -549,10 +544,11 @@ class AppenCorrectAPI:
                     },
                     'cost_data': cost_data,
                     'pricing': {
-                        'input_tokens_per_usd': 10000000,  # $0.10 per 1M tokens
-                        'output_tokens_per_usd': 2500000,  # $0.40 per 1M tokens
+                        'input_tokens_per_usd': 0,  # Self-hosted vLLM - no per-token cost
+                        'output_tokens_per_usd': 0,  # Self-hosted vLLM - no per-token cost
                         'currency': 'USD',
-                        'model': 'gemini-2.5-flash-lite'
+                        'model': 'Qwen/Qwen2.5-7B-Instruct',
+                        'note': 'Self-hosted vLLM - costs based on GPU instance pricing'
                     }
                 })
             

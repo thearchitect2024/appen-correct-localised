@@ -11,7 +11,7 @@ Usage:
     api = PythonAPI()
     
     # Or with custom configuration
-    api = PythonAPI(gemini_api_key="your-key", language_detector="lingua")
+    api = PythonAPI(vllm_url="http://localhost:8000", language_detector="lingua")
     
     # Check text for all errors
     result = api.check_text("This is a sentance with erors.")
@@ -30,7 +30,6 @@ import os
 import logging
 from typing import Dict, Any, List, Optional, Union
 from core import AppenCorrect
-from gemini_api import get_rate_limit_status
 
 
 class PythonAPI:
@@ -42,17 +41,17 @@ class PythonAPI:
     """
     
     def __init__(self, 
-                 gemini_api_key: Optional[str] = None,
-                 gemini_model: str = 'gemini-2.5-flash-lite',
+                 vllm_url: str = 'http://localhost:8000',
+                 vllm_model: str = 'Qwen/Qwen2.5-7B-Instruct',
                  language_detector: str = 'langdetect',
                  language: str = 'en_US',
                  custom_instructions: Optional[Dict[str, str]] = None):
         """
         Initialize the AppenCorrect Python API.
         
-                 Args:
-             gemini_api_key: Gemini API key (if None, will try to read from GEMINI_API_KEY env var)
-             gemini_model: Gemini model to use (default: gemini-2.5-flash-lite)
+        Args:
+             vllm_url: vLLM server URL (default: http://localhost:8000)
+             vllm_model: vLLM model name (default: Qwen/Qwen2.5-7B-Instruct)
              language_detector: Language detection library ('lingua', 'langdetect', or 'disabled')
              language: Default language code (kept for compatibility)
              custom_instructions: Dictionary of custom instructions keyed by use case
@@ -62,13 +61,13 @@ class PythonAPI:
         # Initialize the core AppenCorrect instance
         self._core = AppenCorrect(
             language=language,
-            gemini_api_key=gemini_api_key,
-            gemini_model=gemini_model,
+            vllm_url=vllm_url,
+            vllm_model=vllm_model,
             language_detector=language_detector,
             custom_instructions=custom_instructions
         )
         
-        self.logger.info(f"AppenCorrect Python API initialized - Language detector: {language_detector}, Gemini model: {self._core.gemini_model}")
+        self.logger.info(f"AppenCorrect Python API initialized - Language detector: {language_detector}, vLLM model: {self._core.vllm_client.model}")
     
     def check_text(self, text: str, options: Optional[Dict[str, Any]] = None, use_case: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -359,11 +358,12 @@ class PythonAPI:
         try:
             stats = self._core.get_statistics()
             
+            vllm_available = self.test_vllm_connection()
             return {
-                'status': 'healthy' if stats.get('gemini_available', False) else 'degraded',
-                'version': '2.0.0',
+                'status': 'healthy' if vllm_available else 'degraded',
+                'version': '2.0.0-vllm',
                 'components': {
-                    'gemini_ai': 'available' if stats.get('gemini_available', False) else 'unavailable',
+                    'vllm_inference': 'available' if vllm_available else 'unavailable',
                     'language_detector': 'available' if stats.get('language_detector_available', False) else 'unavailable',
                     'ai_first_mode': 'enabled'
                 },
@@ -391,36 +391,13 @@ class PythonAPI:
             ...     result = api.check_text("Some text")
         """
         try:
-            stats = self._core.get_statistics()
-            return stats.get('gemini_available', False)
+            return self.test_vllm_connection()
         except Exception:
-            return False
-    
-    def set_gemini_api_key(self, api_key: str) -> bool:
-        """
-        Update the Gemini API key.
-        
-        Args:
-            api_key: New Gemini API key
-            
-        Returns:
-            True if key was set successfully, False otherwise
-            
-        Example:
-            >>> api = PythonAPI()
-            >>> success = api.set_gemini_api_key("your-new-api-key")
-        """
-        try:
-            self._core.gemini_api_key = api_key
-            self._core.gemini_available = self._core._test_gemini_connection()
-            return self._core.gemini_available
-        except Exception as e:
-            self.logger.error(f"Error setting Gemini API key: {e}")
             return False
     
     def get_current_model(self) -> str:
         """
-        Get the currently configured Gemini model.
+        Get the currently configured vLLM model.
         
         Returns:
             The model name currently being used
@@ -430,124 +407,99 @@ class PythonAPI:
             >>> model = api.get_current_model()
             >>> print(f"Current model: {model}")
         """
-        return self._core.gemini_model
+        return self._core.vllm_client.model
     
-    def set_gemini_model(self, model: str) -> bool:
+    def test_vllm_connection(self) -> bool:
         """
-        Switch to a different Gemini model for testing.
+        Test the vLLM server connection.
         
-        Args:
-            model: New model name (e.g., 'gemini-2.5-flash', 'gemini-2.0-flash')
-            
         Returns:
-            True if model was set and connection successful, False otherwise
+            True if vLLM server is reachable, False otherwise
             
         Example:
             >>> api = PythonAPI()
-            >>> success = api.set_gemini_model("gemini-2.0-flash")
-            >>> print(f"Switched to: {api.get_current_model()}")
+            >>> if api.test_vllm_connection():
+            ...     print("vLLM server is ready")
         """
         try:
-            old_model = self._core.gemini_model
-            self._core.gemini_model = model
-            
-            # Test connection with new model
-            if self._core.gemini_api_key:
-                connection_test = self._core._test_gemini_connection()
-                if connection_test:
-                    self.logger.info(f"Model switched: {old_model} -> {model}")
-                    return True
-                else:
-                    # Revert to old model if connection failed
-                    self._core.gemini_model = old_model
-                    self.logger.error(f"Failed to connect with model {model}, reverted to {old_model}")
-                    return False
-            else:
-                # No API key to test, just set the model
-                self.logger.info(f"Model set: {old_model} -> {model} (no API key to test connection)")
-                return True
-                
+            return self._core.vllm_client.test_connection()
         except Exception as e:
-            self.logger.error(f"Error setting Gemini model: {e}")
+            self.logger.error(f"Error testing vLLM connection: {e}")
             return False
     
-    def get_rate_limit_status(self) -> Dict[str, Any]:
+    def get_vllm_status(self) -> Dict[str, Any]:
         """
-        Get current rate limiting status for the active model.
+        Get current vLLM server status.
         
         Returns:
-            Dictionary containing rate limit information including:
+            Dictionary containing vLLM server information:
             - model: Current model name
-            - limits: Model-specific rate limits (RPM, TPM, RPD)  
-            - current_usage: Current usage within time windows
-            - utilization: Percentage utilization of limits
+            - server_url: vLLM server URL
+            - connected: Whether server is reachable
+            - inference_type: 'local_gpu' for self-hosted vLLM
             
         Example:
             >>> api = PythonAPI()
-            >>> status = api.get_rate_limit_status()
+            >>> status = api.get_vllm_status()
             >>> print(f"Model: {status['model']}")
-            >>> print(f"RPM usage: {status['utilization']['rpm_percent']:.1f}%")
+            >>> print(f"Server: {status['server_url']}")
         """
         try:
-            return get_rate_limit_status(self._core.gemini_model)
+            connected = self.test_vllm_connection()
+            return {
+                'model': self._core.vllm_client.model,
+                'server_url': self._core.vllm_client.base_url,
+                'connected': connected,
+                'inference_type': 'local_gpu',
+                'note': 'Self-hosted vLLM on GPU - no per-token costs'
+            }
         except Exception as e:
-            self.logger.error(f"Error getting rate limit status: {e}")
+            self.logger.error(f"Error getting vLLM status: {e}")
             return {
                 'error': str(e),
-                'model': self._core.gemini_model,
-                'limits': None,
-                'current_usage': None,
-                'utilization': None
+                'model': 'unknown',
+                'server_url': 'unknown',
+                'connected': False
             }
     
-    def check_rate_limits(self) -> Dict[str, Any]:
+    def check_server_health(self) -> Dict[str, Any]:
         """
-        Check if current rate limits allow making a request.
+        Check vLLM server health and availability.
         
         Returns:
-            Dictionary with rate limit check results:
-            - can_proceed: Boolean indicating if request can be made
-            - status: Current rate limit status
-            - reason: Explanation if request cannot proceed
+            Dictionary with server health check results:
+            - healthy: Boolean indicating if server is operational
+            - model: Current model name
+            - server_url: vLLM server URL
             
         Example:
             >>> api = PythonAPI()
-            >>> check = api.check_rate_limits()
-            >>> if check['can_proceed']:
+            >>> health = api.check_server_health()
+            >>> if health['healthy']:
             ...     result = api.check_text("Some text")
             ... else:
-            ...     print(f"Rate limited: {check['reason']}")
+            ...     print(f"Server unavailable")
         """
         try:
-            from .rate_limiter import get_rate_limiter, estimate_request_tokens
-            
-            # Estimate tokens for a typical request
-            sample_messages = [{"content": "sample text"}]
-            estimated_tokens = estimate_request_tokens(sample_messages)
-            
-            rate_limiter = get_rate_limiter(self._core.gemini_model)
-            can_proceed, reason, wait_time = rate_limiter.can_make_request(estimated_tokens)
-            
+            connected = self.test_vllm_connection()
             return {
-                'can_proceed': can_proceed,
-                'reason': reason,
-                'wait_time': wait_time,
-                'estimated_tokens': estimated_tokens,
-                'status': self.get_rate_limit_status()
+                'healthy': connected,
+                'model': self._core.vllm_client.model,
+                'server_url': self._core.vllm_client.base_url,
+                'note': 'vLLM does not have rate limits - limited by GPU capacity'
             }
         except Exception as e:
-            self.logger.error(f"Error checking rate limits: {e}")
+            self.logger.error(f"Error checking server health: {e}")
             return {
-                'can_proceed': True,  # Default to allowing request if check fails
-                'reason': f"Rate limit check failed: {e}",
-                'wait_time': 0,
-                'estimated_tokens': 0,
-                'status': None
+                'healthy': False,
+                'model': 'unknown',
+                'server_url': 'unknown',
+                'error': str(e)
             }
 
     def clear_cache(self) -> None:
         """
-        Clear the Gemini response cache.
+        Clear the vLLM response cache.
         
         Useful for testing to ensure fresh API calls for each test.
         
