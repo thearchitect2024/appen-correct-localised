@@ -12,9 +12,14 @@ from datetime import datetime
 def test_gemini_vertex_api():
     """Test the Gemini Vertex API with the provided key."""
     
-    # Set the API key and project
-    api_key = "AIzaSyBOQIfYtUDqEySWNQKLx7HmNNBZn8WMGH8"
-    project_id = "appencorrect"
+    # Get API key from environment - DO NOT HARDCODE SECRETS!
+    api_key = os.environ.get('GEMINI_VERTEX_API_KEY') or os.environ.get('GEMINI_API_KEY')
+    if not api_key:
+        print("❌ ERROR: No API key found in environment!")
+        print("Set GEMINI_VERTEX_API_KEY or GEMINI_API_KEY environment variable")
+        return False
+    
+    project_id = os.environ.get('GOOGLE_CLOUD_PROJECT', 'appencorrect')
     os.environ['GEMINI_VERTEX_API_KEY'] = api_key
     os.environ['GOOGLE_CLOUD_PROJECT'] = project_id
     

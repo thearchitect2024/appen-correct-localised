@@ -95,7 +95,8 @@ The command removes all the Kubernetes components associated with the chart and 
 
 | Name                      | Description                                     | Value |
 | ------------------------- | ----------------------------------------------- | ----- |
-| `env.GEMINI_API_KEY`      | Gemini API key for the application              | `AIzaSyDqM27YJjuNd1f_gnylCsnqjvEijqLRX7c` |
+| `env.VLLM_URL`           | vLLM server URL for local LLM inference         | `http://vllm-service:8000` |
+| `env.VLLM_MODEL`         | vLLM model name                                 | `Qwen/Qwen2.5-7B-Instruct` |
 
 ## Configuration and installation details
 

@@ -81,7 +81,8 @@ affinity: {}
 
 # Environment variables
 env:
-  GEMINI_API_KEY: "AIzaSyDqM27YJjuNd1f_gnylCsnqjvEijqLRX7c"
+  # vLLM branch: Gemini API removed, using local vLLM inference
+  # VLLM_URL: "http://vllm-service:8000"  # Set if using external vLLM service
   # Database configuration
   DATABASE_PATH: "/app/data/api_keys.db"
 
