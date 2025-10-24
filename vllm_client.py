@@ -35,7 +35,7 @@ class VLLMClient:
         self.model = model
         self.timeout = timeout
         self.max_retries = max_retries
-        self.endpoint = f"{self.base_url}/v1/completions"
+        self.endpoint = f"{self.base_url}/v1/chat/completions"
         
         logger.info(f"VLLMClient initialized - URL: {self.base_url}, Model: {self.model}")
     
@@ -59,24 +59,40 @@ class VLLMClient:
         max_tokens: int = 256,
         temperature: float = 0.3,
         top_p: float = 0.9,
-        stop: Optional[List[str]] = None
+        stop: Optional[List[str]] = None,
+        system_message: Optional[str] = None
     ) -> Optional[str]:
         """
-        Generate text using vLLM
+        Generate text using vLLM chat completions
         
         Args:
-            prompt: Input prompt
+            prompt: Input prompt (user message)
             max_tokens: Maximum tokens to generate
             temperature: Sampling temperature (0.0 = deterministic)
             top_p: Nucleus sampling parameter
             stop: Stop sequences
+            system_message: Optional system message (extracted from prompt if present)
             
         Returns:
             Generated text or None on error
         """
+        # Split prompt into system and user if not provided separately
+        if system_message is None and "\n\n" in prompt:
+            # Try to extract system message from combined prompt
+            parts = prompt.split("\n\n", 1)
+            if "You are" in parts[0] or "CRITICAL" in parts[0]:
+                system_message = parts[0]
+                prompt = parts[1]
+        
+        # Build messages for chat completions
+        messages = []
+        if system_message:
+            messages.append({"role": "system", "content": system_message})
+        messages.append({"role": "user", "content": prompt})
+        
         payload = {
             "model": self.model,
-            "prompt": prompt,
+            "messages": messages,
             "max_tokens": max_tokens,
             "temperature": temperature,
             "top_p": top_p,
@@ -100,7 +116,8 @@ class VLLMClient:
                 
                 if response.status_code == 200:
                     result = response.json()
-                    text = result["choices"][0]["text"].strip()
+                    # Chat completions returns message content, not text
+                    text = result["choices"][0]["message"]["content"].strip()
                     logger.info(f"✓ vLLM response received in {elapsed:.2f}s")
                     logger.info(f"vLLM Raw Response (length: {len(text)}):\n{text[:500]}...")  # INFO level, first 500 chars
                     return text
