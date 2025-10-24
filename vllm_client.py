@@ -20,7 +20,8 @@ class VLLMClient:
         base_url: str = "http://localhost:8000",
         model: str = "Qwen/Qwen2.5-7B-Instruct",
         timeout: int = 60,
-        max_retries: int = 3
+        max_retries: int = 3,
+        max_model_len: int = 1024
     ):
         """
         Initialize vLLM client
@@ -30,14 +31,16 @@ class VLLMClient:
             model: Model name/path
             timeout: Request timeout in seconds
             max_retries: Maximum retry attempts
+            max_model_len: Maximum context length (default: 1024)
         """
         self.base_url = base_url.rstrip('/')
         self.model = model
         self.timeout = timeout
         self.max_retries = max_retries
+        self.max_model_len = max_model_len
         self.endpoint = f"{self.base_url}/v1/chat/completions"
         
-        logger.info(f"VLLMClient initialized - URL: {self.base_url}, Model: {self.model}")
+        logger.info(f"VLLMClient initialized - URL: {self.base_url}, Model: {self.model}, Max context: {self.max_model_len}")
     
     def test_connection(self) -> bool:
         """Test vLLM server connection"""
@@ -53,6 +56,52 @@ class VLLMClient:
             logger.error(f"✗ vLLM server connection failed: {e}")
             return False
     
+    def estimate_tokens(self, text: str) -> int:
+        """
+        Estimate token count (rough approximation)
+        Rule of thumb: 1 token ≈ 4 characters for English
+        
+        Args:
+            text: Input text
+            
+        Returns:
+            Estimated token count
+        """
+        return max(1, len(text) // 4)
+    
+    def calculate_max_tokens(self, prompt: str, system_message: Optional[str] = None, 
+                            desired_max_tokens: int = 512, safety_margin: int = 50) -> int:
+        """
+        Calculate safe max_tokens based on context length
+        
+        Args:
+            prompt: User prompt text
+            system_message: Optional system message
+            desired_max_tokens: Desired max tokens (will be reduced if needed)
+            safety_margin: Safety margin for tokenization differences
+            
+        Returns:
+            Safe max_tokens value
+        """
+        # Estimate tokens in prompt
+        prompt_tokens = self.estimate_tokens(prompt)
+        system_tokens = self.estimate_tokens(system_message) if system_message else 0
+        
+        # Total input tokens
+        total_input_tokens = prompt_tokens + system_tokens + safety_margin
+        
+        # Calculate available tokens for output
+        available_tokens = self.max_model_len - total_input_tokens
+        
+        # Return the minimum of desired and available
+        safe_max_tokens = min(desired_max_tokens, max(64, available_tokens))
+        
+        if safe_max_tokens < desired_max_tokens:
+            logger.warning(f"Reduced max_tokens from {desired_max_tokens} to {safe_max_tokens} "
+                          f"(prompt uses ~{total_input_tokens} tokens, context limit: {self.max_model_len})")
+        
+        return safe_max_tokens
+    
     def generate(
         self,
         prompt: str,
@@ -61,19 +110,21 @@ class VLLMClient:
         top_p: float = 1.0,
         stop: Optional[List[str]] = None,
         system_message: Optional[str] = None,
-        do_sample: bool = False
+        do_sample: bool = False,
+        auto_adjust_tokens: bool = True
     ) -> Optional[str]:
         """
         Generate text using vLLM chat completions
         
         Args:
             prompt: Input prompt (user message)
-            max_tokens: Maximum tokens to generate (default: 512 for comprehensive corrections)
+            max_tokens: Maximum tokens to generate (default: 512, auto-adjusted if needed)
             temperature: Sampling temperature (0.0 = deterministic, greedy decoding)
             top_p: Nucleus sampling parameter (1.0 = disabled)
             stop: Stop sequences (empty for JSON to prevent truncation)
             system_message: Optional system message (extracted from prompt if present)
             do_sample: Enable sampling (False = greedy/deterministic)
+            auto_adjust_tokens: Automatically adjust max_tokens to fit context (default: True)
             
         Returns:
             Generated text or None on error
@@ -85,6 +136,10 @@ class VLLMClient:
             if "You are" in parts[0] or "CRITICAL" in parts[0]:
                 system_message = parts[0]
                 prompt = parts[1]
+        
+        # Auto-adjust max_tokens to prevent context overflow
+        if auto_adjust_tokens:
+            max_tokens = self.calculate_max_tokens(prompt, system_message, max_tokens)
         
         # Build messages for chat completions
         messages = []

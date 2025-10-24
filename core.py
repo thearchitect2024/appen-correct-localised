@@ -251,6 +251,39 @@ class AppenCorrect:
             'language_detections': 0
         }
     
+    def _truncate_long_text(self, text: str, max_chars: int = 2000) -> tuple[str, bool]:
+        """
+        Truncate very long text at sentence boundaries to fit in context window.
+        
+        Args:
+            text: Input text
+            max_chars: Maximum characters (~500 tokens for prompt + response)
+            
+        Returns:
+            (truncated_text, was_truncated)
+        """
+        if len(text) <= max_chars:
+            return text, False
+        
+        # Try to truncate at sentence boundary
+        truncated = text[:max_chars]
+        
+        # Find last sentence ending
+        for delimiter in ['. ', '! ', '? ', '.\n', '!\n', '?\n']:
+            last_sentence = truncated.rfind(delimiter)
+            if last_sentence > max_chars * 0.7:  # At least 70% of desired length
+                truncated = truncated[:last_sentence + 1]
+                self.logger.warning(f"Text truncated from {len(text)} to {len(truncated)} chars at sentence boundary")
+                return truncated, True
+        
+        # No good sentence boundary found, truncate at word
+        last_space = truncated.rfind(' ')
+        if last_space > 0:
+            truncated = truncated[:last_space]
+        
+        self.logger.warning(f"Text truncated from {len(text)} to {len(truncated)} chars at word boundary")
+        return truncated, True
+    
     def _init_language_detector(self):
         """Initialize language detector based on configuration."""
         if self.language_detector == 'disabled':
@@ -625,6 +658,12 @@ class AppenCorrect:
                 }
             }
         
+        # Handle very long text by truncating at sentence boundaries
+        original_text = text
+        text_was_truncated = False
+        if len(text) > 2000:  # ~500 tokens
+            text, text_was_truncated = self._truncate_long_text(text, max_chars=2000)
+        
         # Use AI for comprehensive analysis
         try:
             ai_corrections = self._comprehensive_ai_check(text, language_override=language, use_case=use_case)
@@ -668,7 +707,7 @@ class AppenCorrect:
         # Prepare response
         result = {
             'status': 'success',
-            'original_text': text,
+            'original_text': original_text if text_was_truncated else text,
             'corrections': [
                 {
                     'type': c.type,
@@ -689,9 +728,15 @@ class AppenCorrect:
                 'api_available': self.api_available,
                 'api_type': self.api_type,
                 'ai_first_mode': True,
-                'detected_language': self.detect_language(text) if len(text) >= 10 else None
+                'detected_language': self.detect_language(text) if len(text) >= 10 else None,
+                'text_truncated': text_was_truncated,
+                'original_length': len(original_text) if text_was_truncated else len(text),
+                'processed_length': len(text) if text_was_truncated else None
             }
         }
+        
+        if text_was_truncated:
+            result['warning'] = f'Text was truncated from {len(original_text)} to {len(text)} characters to fit context window. Only first portion was analyzed.'
         
         return result
     
