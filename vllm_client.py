@@ -102,7 +102,7 @@ class VLLMClient:
                     result = response.json()
                     text = result["choices"][0]["text"].strip()
                     logger.info(f"✓ vLLM response received in {elapsed:.2f}s")
-                    logger.debug(f"vLLM Raw Response (length: {len(text)}):\n{text}")
+                    logger.info(f"vLLM Raw Response (length: {len(text)}):\n{text[:500]}...")  # INFO level, first 500 chars
                     return text
                 else:
                     logger.error(f"vLLM API error {response.status_code}: {response.text}")
