@@ -868,7 +868,8 @@ If no spelling errors: {"corrected_text": "[original text]", "corrections": []}"
                 generated_text = self.vllm_client.generate(
                     prompt=prompt,
                     max_tokens=1000,
-                    temperature=0.2
+                    temperature=0.2,
+                    stop=['\n\n', '```', '</response>', 'JSON Response:', 'Input text:']
                 )
                 response = {'text': generated_text} if generated_text else None
             
@@ -1030,7 +1031,8 @@ Only flag actual mistakes, never valid regional variants."""
                 generated_text = self.vllm_client.generate(
                     prompt=prompt,
                     max_tokens=1024,
-                    temperature=0.2
+                    temperature=0.2,
+                    stop=['\n\n', '```', '</response>', 'JSON Response:', 'Input text:']
                 )
                 
                 if generated_text:
@@ -1655,7 +1657,8 @@ Return ONLY valid JSON:
             generated_text = self.vllm_client.generate(
                 prompt=prompt,
                 max_tokens=1024,
-                temperature=0.2
+                temperature=0.2,
+                stop=['\n\n', '```', '</response>', 'JSON Response:', 'Input text:']
             )
             
             if generated_text:

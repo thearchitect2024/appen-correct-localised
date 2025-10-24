@@ -86,6 +86,7 @@ class VLLMClient:
         for attempt in range(1, self.max_retries + 1):
             try:
                 logger.info(f"Attempt {attempt} to call vLLM API")
+                logger.debug(f"vLLM Prompt (first 500 chars):\n{prompt[:500]}...")
                 start_time = time.time()
                 
                 response = requests.post(
@@ -101,6 +102,7 @@ class VLLMClient:
                     result = response.json()
                     text = result["choices"][0]["text"].strip()
                     logger.info(f"✓ vLLM response received in {elapsed:.2f}s")
+                    logger.debug(f"vLLM Raw Response (length: {len(text)}):\n{text}")
                     return text
                 else:
                     logger.error(f"vLLM API error {response.status_code}: {response.text}")
