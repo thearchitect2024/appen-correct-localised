@@ -4,12 +4,18 @@
 
 This deployment plan outlines the architecture, configuration, and operational guidelines for deploying AppenCorrect on AWS EKS using local GPU inference with vLLM, KEDA autoscaling, and Karpenter node management.
 
+**Configuration:** This plan uses **4096 token context window** to handle long texts (up to ~11,900 characters / 2,000+ words).
+
 **Key Objectives:**
 - Support 200-400 concurrent users in production
 - Test capacity for 1000 concurrent users
-- Maintain $300-400/month operating cost
-- Achieve 2-4 second response times
+- Achieve 3-6 second response times
 - Enable scale-to-zero for cost optimization
+
+**⚠️ Cost Consideration:** 4096 context requires **2x GPU pods** vs 2048 context:
+- **Expected cost:** $800-1,500/month (depending on usage)
+- **For 500-600 users:** ~$1,300-1,500/month
+- **Trade-off:** Handles 3x longer texts but doubles GPU cost
 
 ---
 
@@ -146,22 +152,22 @@ Resources:
     nvidia.com/gpu: 1
 vLLM Configuration:
   Model: Qwen/Qwen2.5-7B-Instruct
-  max-model-len: 1024
+  max-model-len: 4096
   gpu-memory-utilization: 0.90
-  max-num-seqs: 32
+  max-num-seqs: 8
   enable-prefix-caching: true
   generation-config: vllm (CRITICAL)
 ```
 
 **Capacity per GPU pod:**
-- 12-16 concurrent inference requests
-- ~4 requests/second throughput
-- 2-4 second processing time per request
+- 8 concurrent inference requests
+- ~2 requests/second throughput
+- 3-6 second processing time per request
 
 **Total GPU capacity (10 pods):**
-- 120-160 concurrent inference requests
-- 40 requests/second throughput
-- **Supports 200-400 concurrent users**
+- 80 concurrent inference requests
+- 20 requests/second throughput
+- **Supports 80-160 concurrent users**
 
 **Scaling Strategy:**
 - KEDA event-driven autoscaling
@@ -371,32 +377,36 @@ spec:
 
 ## Cost Analysis
 
-### Monthly Cost Breakdown (Production)
+### Monthly Cost Breakdown (Production with 4096 Context)
 
 | Component | Configuration | Unit Cost | Hours/Month | Monthly Cost |
 |-----------|--------------|-----------|-------------|--------------|
 | **Flask Pods** | 2× t3.medium Spot (always on) | $0.015/hr | 1,440 hrs | **$22** |
-| **Flask Pods** | 1× t3.medium Spot (avg peak) | $0.015/hr | 176 hrs | **$3** |
-| **GPU Pods** | 0-10× g6.xlarge Spot | $0.453/hr | 880 hrs* | **$399** |
+| **Flask Pods** | 2× t3.medium Spot (avg peak) | $0.015/hr | 352 hrs | **$5** |
+| **GPU Pods (4096 ctx)** | 0-20× g6.xlarge Spot | $0.453/hr | 1,760 hrs* | **$797** |
 | **ElastiCache Redis** | cache.t4g.micro | - | - | **$12** |
 | **Application Load Balancer** | 1× ALB | - | - | **$23** |
-| **EBS Storage** | 50GB GP3 | - | - | **$5** |
+| **EBS Storage** | 100GB GP3 | - | - | **$10** |
 | **Data Transfer** | 100GB outbound | - | - | **$9** |
 | **CloudWatch Logs** | 10GB/month | - | - | **$5** |
-| **Total** | | | | **$478/month** |
+| **Total** | | | | **$883/month** |
 
-*GPU hours calculation: 3 pods avg × 10 hrs/day × 22 business days = 660 hrs + 4 hrs weekend tests = 880 hrs
+*GPU hours calculation: 6 pods avg × 10 hrs/day × 22 business days = 1,320 hrs + 8 hrs weekend tests = 1,760 hrs
 
-### Cost Per Scenario
+**⚠️ Cost Impact:** 4096 context requires 2x GPU pods vs 2048 context, **doubling GPU costs**.
+
+### Cost Per Scenario (4096 Context)
 
 | Scenario | Flask Pods | GPU Pods | Duration | Cost/Month |
 |----------|------------|----------|----------|------------|
 | **Idle** (nights/weekends) | 2 | 0 | 14 hrs/day | $62/month |
-| **Low** (0-50 users) | 2 | 1-2 | 6 hrs/day | $165/month |
-| **Medium** (50-150 users) | 2-4 | 2-4 | 8 hrs/day | $285/month |
-| **High** (150-300 users) | 4-8 | 4-8 | 10 hrs/day | $475/month |
-| **Peak** (300-400 users) | 8-10 | 8-10 | 2 hrs/day | $385/month |
-| **Load Test** (1000 users) | 10 | 80 | 1 hour | $36/test |
+| **Low** (0-40 users) | 2 | 2-4 | 6 hrs/day | $220/month |
+| **Medium** (40-100 users) | 2-4 | 6-10 | 8 hrs/day | $480/month |
+| **High** (100-250 users) | 4-6 | 12-16 | 10 hrs/day | $850/month |
+| **Peak** (250-400 users) | 6-10 | 16-20 | 2 hrs/day | $540/month |
+| **Load Test** (1000 users) | 10 | 160 | 1 hour | $72/test |
+
+**Note:** For 500-600 concurrent users, expect **~$1,300-1,500/month** with 4096 context.
 
 ### Budget Optimization Strategies
 
@@ -413,17 +423,19 @@ spec:
 
 ## Capacity Planning
 
-### Concurrent User Capacity
+### Concurrent User Capacity (4096 Context Window)
 
 | Flask Pods | GPU Pods | Concurrent Users | Requests/Sec | Use Case |
 |------------|----------|------------------|--------------|----------|
 | 2 | 0 | 0 | 0 | Idle (cached only) |
-| 2 | 2 | 50-80 | 8-16 | Light usage |
-| 3 | 4 | 100-160 | 16-32 | Medium usage |
-| 4 | 6 | 150-240 | 24-48 | Heavy usage |
-| 6 | 10 | 200-400 | 40-80 | **Production peak** ✅ |
-| 10 | 20 | 400-800 | 80-160 | Overload |
-| 10 | 80 | 1000+ | 320+ | **Load testing** ✅ |
+| 2 | 2 | 20-40 | 4 | Light usage |
+| 3 | 6 | 60-120 | 12 | Medium usage |
+| 4 | 10 | 100-200 | 20 | Heavy usage |
+| 6 | 20 | 200-400 | 40 | **Production peak** ✅ |
+| 10 | 40 | 400-800 | 80 | Overload |
+| 10 | 160 | 1000+ | 320+ | **Load testing** ✅ |
+
+**Note:** 4096 context window requires 2x GPU pods vs 2048 context for same user capacity.
 
 ### Response Time SLAs
 
@@ -509,7 +521,7 @@ kubectl apply -f k8s/redis-deployment.yaml
 # vLLM configuration
 kubectl create configmap vllm-config \
   --from-literal=VLLM_MODEL=Qwen/Qwen2.5-7B-Instruct \
-  --from-literal=VLLM_MAX_MODEL_LEN=1024 \
+  --from-literal=VLLM_MAX_MODEL_LEN=4096 \
   --from-literal=VLLM_GPU_MEMORY_UTILIZATION=0.90
 
 # Redis connection
@@ -967,9 +979,9 @@ LOG_LEVEL=INFO
 
 # vLLM server
 VLLM_MODEL=Qwen/Qwen2.5-7B-Instruct
-VLLM_MAX_MODEL_LEN=1024
+VLLM_MAX_MODEL_LEN=4096
 VLLM_GPU_MEMORY_UTILIZATION=0.90
-VLLM_MAX_NUM_SEQS=32
+VLLM_MAX_NUM_SEQS=8
 HF_HOME=/model-cache
 CUDA_VISIBLE_DEVICES=0
 ```
