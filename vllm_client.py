@@ -19,7 +19,7 @@ class VLLMClient:
         self,
         base_url: str = "http://localhost:8000",
         model: str = "Qwen/Qwen2.5-7B-Instruct",
-        timeout: int = 30,
+        timeout: int = 60,
         max_retries: int = 3
     ):
         """
@@ -56,7 +56,7 @@ class VLLMClient:
     def generate(
         self,
         prompt: str,
-        max_tokens: int = 1024,
+        max_tokens: int = 256,
         temperature: float = 0.3,
         top_p: float = 0.9,
         stop: Optional[List[str]] = None
@@ -143,10 +143,10 @@ class VLLMClient:
         # Generate response
         response = self.generate(
             prompt=prompt,
-            max_tokens=1024,
+            max_tokens=256,
             temperature=temperature,
             top_p=0.9,
-            stop=["</response>", "\n\n\n"]
+            stop=["\n\n", "```", "</response>", "JSON Response:", "Input text:"]
         )
         
         if not response:
