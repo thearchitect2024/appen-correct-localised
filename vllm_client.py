@@ -21,7 +21,7 @@ class VLLMClient:
         model: str = "Qwen/Qwen2.5-7B-Instruct",
         timeout: int = 60,
         max_retries: int = 3,
-        max_model_len: int = 2048
+        max_model_len: int = 4096
     ):
         """
         Initialize vLLM client
@@ -31,7 +31,7 @@ class VLLMClient:
             model: Model name/path
             timeout: Request timeout in seconds
             max_retries: Maximum retry attempts
-            max_model_len: Maximum context length (default: 2048)
+            max_model_len: Maximum context length (default: 4096)
         """
         self.base_url = base_url.rstrip('/')
         self.model = model
@@ -335,13 +335,13 @@ def create_vllm_client(base_url: str = None, model: str = None, max_model_len: i
     Args:
         base_url: vLLM server URL (default: http://localhost:8000)
         model: Model name (default: Qwen/Qwen2.5-7B-Instruct)
-        max_model_len: Maximum context length (default: 2048, or from VLLM_MAX_MODEL_LEN env var)
+        max_model_len: Maximum context length (default: 4096, or from VLLM_MAX_MODEL_LEN env var)
     """
     import os
     
     base_url = base_url or os.getenv("VLLM_URL", "http://localhost:8000")
     model = model or os.getenv("VLLM_MODEL", "Qwen/Qwen2.5-7B-Instruct")
-    max_model_len = max_model_len or int(os.getenv("VLLM_MAX_MODEL_LEN", "2048"))
+    max_model_len = max_model_len or int(os.getenv("VLLM_MAX_MODEL_LEN", "4096"))
     
     return VLLMClient(base_url=base_url, model=model, max_model_len=max_model_len)
 
