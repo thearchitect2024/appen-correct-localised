@@ -56,22 +56,24 @@ class VLLMClient:
     def generate(
         self,
         prompt: str,
-        max_tokens: int = 256,
-        temperature: float = 0.3,
-        top_p: float = 0.9,
+        max_tokens: int = 128,
+        temperature: float = 0.0,
+        top_p: float = 1.0,
         stop: Optional[List[str]] = None,
-        system_message: Optional[str] = None
+        system_message: Optional[str] = None,
+        do_sample: bool = False
     ) -> Optional[str]:
         """
         Generate text using vLLM chat completions
         
         Args:
             prompt: Input prompt (user message)
-            max_tokens: Maximum tokens to generate
-            temperature: Sampling temperature (0.0 = deterministic)
-            top_p: Nucleus sampling parameter
-            stop: Stop sequences
+            max_tokens: Maximum tokens to generate (default: 128 for speed)
+            temperature: Sampling temperature (0.0 = deterministic, greedy decoding)
+            top_p: Nucleus sampling parameter (1.0 = disabled)
+            stop: Stop sequences (empty for JSON to prevent truncation)
             system_message: Optional system message (extracted from prompt if present)
+            do_sample: Enable sampling (False = greedy/deterministic)
             
         Returns:
             Generated text or None on error
@@ -96,8 +98,13 @@ class VLLMClient:
             "max_tokens": max_tokens,
             "temperature": temperature,
             "top_p": top_p,
-            "stop": stop or []
+            "stop": stop if stop is not None else []
         }
+        
+        # Add do_sample for deterministic output (vLLM OpenAI compatibility)
+        if not do_sample and temperature == 0.0:
+            payload["temperature"] = 0.0
+            payload["top_p"] = 1.0
         
         for attempt in range(1, self.max_retries + 1):
             try:
@@ -117,10 +124,23 @@ class VLLMClient:
                 if response.status_code == 200:
                     result = response.json()
                     # Chat completions returns message content, not text
-                    text = result["choices"][0]["message"]["content"].strip()
-                    logger.info(f"✓ vLLM response received in {elapsed:.2f}s")
-                    logger.info(f"vLLM Raw Response (length: {len(text)}):\n{text[:500]}...")  # INFO level, first 500 chars
-                    return text
+                    raw_text = result["choices"][0]["message"]["content"].strip()
+                    logger.info(f"✓ vLLM response received in {elapsed:.2f}s ({len(raw_text)} chars)")
+                    logger.info(f"vLLM Raw Response:\n{raw_text[:500]}...")  # INFO level, first 500 chars
+                    
+                    # Robust JSON extraction: find first { and last }
+                    start_idx = raw_text.find('{')
+                    end_idx = raw_text.rfind('}')
+                    
+                    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                        # Extract JSON portion only
+                        json_text = raw_text[start_idx:end_idx + 1]
+                        logger.debug(f"Extracted JSON (length: {len(json_text)})")
+                        return json_text
+                    else:
+                        # No JSON found, return as-is (will be handled by caller)
+                        logger.warning("No JSON delimiters found in response")
+                        return raw_text
                 else:
                     logger.error(f"vLLM API error {response.status_code}: {response.text}")
                     
