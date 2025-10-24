@@ -1013,7 +1013,7 @@ CRITICAL RULES:
 CRITICAL: Respond with VALID JSON only. Follow this EXACT format:
 
 {{
-  "corrected_text": "the fully corrected text",
+  "corrected_text": "PUT THE INPUT TEXT HERE WITH ALL CORRECTIONS APPLIED",
   "corrections": [
     {{
       "original": "exact word/phrase with error",
@@ -1028,6 +1028,11 @@ CRITICAL: Respond with VALID JSON only. Follow this EXACT format:
   ]
 }}
 
+CRITICAL INSTRUCTION FOR "corrected_text":
+- "corrected_text" MUST be the input text with ALL errors fixed
+- Apply every correction from the "corrections" array to build "corrected_text"
+- Example: If input is "I has a eror", output {{"corrected_text": "I have an error", "corrections": [...]}}
+
 JSON REQUIREMENTS (CRITICAL):
 - Use double quotes for ALL strings
 - Add commas between array elements  
@@ -1036,7 +1041,7 @@ JSON REQUIREMENTS (CRITICAL):
 - Escape quotes inside strings with backslash
 - Test your JSON is valid before responding
 
-If no errors found: {{"corrected_text": "[original text]", "corrections": []}}
+If no errors found: {{"corrected_text": "[original text unchanged]", "corrections": []}}
 
 EXAMPLES:
 - "realise" in British context: NOT an error
