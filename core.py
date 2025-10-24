@@ -1087,7 +1087,7 @@ Only flag actual mistakes, never valid regional variants."""
                 prompt = f"{system_message}\n\n{user_message}"
                 generated_text = self.vllm_client.generate(
                     prompt=prompt,
-                    max_tokens=512,      # Increased for paragraphs with multiple errors
+                    max_tokens=1024,     # Increased for long paragraphs with many errors (auto-adjusts if needed)
                     temperature=0.0,     # Deterministic/greedy decoding
                     top_p=1.0,           # Disable nucleus sampling
                     do_sample=False,     # Greedy decoding
