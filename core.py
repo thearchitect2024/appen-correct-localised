@@ -649,8 +649,13 @@ class AppenCorrect:
         # Sort corrections by position
         all_corrections.sort(key=lambda c: c.position[0])
         
-        # Apply corrections to create processed text
-        processed_text = self._apply_corrections(text, all_corrections)
+        # Use corrected_text from AI if available, otherwise apply corrections manually
+        if hasattr(self, '_last_corrected_text') and self._last_corrected_text:
+            processed_text = self._last_corrected_text
+            self._last_corrected_text = None  # Clear for next request
+        else:
+            # Fallback: Apply corrections to create processed text
+            processed_text = self._apply_corrections(text, all_corrections)
         
         # Calculate processing time
         processing_time = time.time() - start_time
@@ -867,7 +872,7 @@ If no spelling errors: {"corrected_text": "[original text]", "corrections": []}"
                 prompt = f"{system_message}\n\n{user_message}"
                 generated_text = self.vllm_client.generate(
                     prompt=prompt,
-                    max_tokens=1000,
+                    max_tokens=256,  # Reduced from 1000 for speed
                     temperature=0.2,
                     stop=['\n\n', '```', '</response>', 'JSON Response:', 'Input text:']
                 )
@@ -1030,15 +1035,19 @@ Only flag actual mistakes, never valid regional variants."""
                 prompt = f"{system_message}\n\n{user_message}"
                 generated_text = self.vllm_client.generate(
                     prompt=prompt,
-                    max_tokens=1024,
+                    max_tokens=256,  # Reduced from 1024 for speed (grammar corrections are short)
                     temperature=0.2,
                     stop=['\n\n', '```', '</response>', 'JSON Response:', 'Input text:']
                 )
                 
                 if generated_text:
-                    corrections = self._parse_complete_correction_response(generated_text, text)
+                    corrections, corrected_text = self._parse_complete_correction_response(generated_text, text)
+                    # Store corrected_text for process_text to use
+                    self._last_corrected_text = corrected_text
                 else:
                     corrections = []
+                    corrected_text = text
+                    self._last_corrected_text = None
             
             # Cache the result with smart cache management
             if self.cache_enabled:
@@ -1056,15 +1065,20 @@ Only flag actual mistakes, never valid regional variants."""
             self.logger.error(f"Comprehensive AI check failed: {e}")
             return []
     
-    def _parse_complete_correction_response(self, response: str, text: str) -> List[Correction]:
-        """Parse structured correction response with individual corrections."""
+    def _parse_complete_correction_response(self, response: str, text: str) -> tuple[List[Correction], str]:
+        """Parse structured correction response with individual corrections.
+        
+        Returns:
+            Tuple of (corrections list, corrected_text)
+        """
         corrections = []
+        corrected_text = text  # Default to original if parsing fails
         
         try:
             # Handle empty or None responses
             if not response or not response.strip():
                 self.logger.warning("Empty response from AI API")
-                return corrections
+                return corrections, corrected_text
             
             # Strip markdown code blocks if present
             cleaned_response = response.strip()
@@ -1077,7 +1091,7 @@ Only flag actual mistakes, never valid regional variants."""
             # Handle empty response after cleaning
             if not cleaned_response:
                 self.logger.warning("Empty response after cleaning markdown")
-                return corrections
+                return corrections, corrected_text
             
             # Clean up common JSON issues
             cleaned_response = self._clean_json_response(cleaned_response)
@@ -1107,7 +1121,10 @@ Only flag actual mistakes, never valid regional variants."""
                     else:
                         # If all repair attempts fail, log and continue with empty result
                         self.logger.warning(f"All JSON repair attempts failed for: {json_error}")
-                        return corrections
+                        return corrections, corrected_text
+            
+            # Extract corrected_text from JSON (use this instead of reconstructing)
+            corrected_text = result.get('corrected_text', text)
             
             # Extract corrections array
             corrections_array = result.get('corrections', [])
@@ -1163,7 +1180,7 @@ Only flag actual mistakes, never valid regional variants."""
             self.logger.error(f"Failed to parse correction response: {e}")
 
         
-        return corrections
+        return corrections, corrected_text
     
     def _clean_json_response(self, response: str) -> str:
         """Clean common JSON formatting issues in AI responses."""
@@ -1656,7 +1673,7 @@ Return ONLY valid JSON:
             prompt = f"{system_message}\n\n{user_message}"
             generated_text = self.vllm_client.generate(
                 prompt=prompt,
-                max_tokens=1024,
+                max_tokens=512,  # Reduced from 1024 for speed (quality assessment needs more than corrections)
                 temperature=0.2,
                 stop=['\n\n', '```', '</response>', 'JSON Response:', 'Input text:']
             )
