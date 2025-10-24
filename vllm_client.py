@@ -56,7 +56,7 @@ class VLLMClient:
     def generate(
         self,
         prompt: str,
-        max_tokens: int = 128,
+        max_tokens: int = 512,
         temperature: float = 0.0,
         top_p: float = 1.0,
         stop: Optional[List[str]] = None,
@@ -68,7 +68,7 @@ class VLLMClient:
         
         Args:
             prompt: Input prompt (user message)
-            max_tokens: Maximum tokens to generate (default: 128 for speed)
+            max_tokens: Maximum tokens to generate (default: 512 for comprehensive corrections)
             temperature: Sampling temperature (0.0 = deterministic, greedy decoding)
             top_p: Nucleus sampling parameter (1.0 = disabled)
             stop: Stop sequences (empty for JSON to prevent truncation)

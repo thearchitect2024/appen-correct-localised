@@ -872,7 +872,7 @@ If no spelling errors: {"corrected_text": "[original text]", "corrections": []}"
                 prompt = f"{system_message}\n\n{user_message}"
                 generated_text = self.vllm_client.generate(
                     prompt=prompt,
-                    max_tokens=128,      # Optimized for spelling corrections
+                    max_tokens=256,      # Increased for multiple spelling errors
                     temperature=0.0,     # Deterministic/greedy decoding
                     top_p=1.0,           # Disable nucleus sampling
                     do_sample=False,     # Greedy decoding
@@ -1037,7 +1037,7 @@ Only flag actual mistakes, never valid regional variants."""
                 prompt = f"{system_message}\n\n{user_message}"
                 generated_text = self.vllm_client.generate(
                     prompt=prompt,
-                    max_tokens=128,      # Optimized for grammar corrections
+                    max_tokens=512,      # Increased for paragraphs with multiple errors
                     temperature=0.0,     # Deterministic/greedy decoding
                     top_p=1.0,           # Disable nucleus sampling
                     do_sample=False,     # Greedy decoding
@@ -1677,7 +1677,7 @@ Return ONLY valid JSON:
             prompt = f"{system_message}\n\n{user_message}"
             generated_text = self.vllm_client.generate(
                 prompt=prompt,
-                max_tokens=256,      # Quality assessment needs more tokens than corrections
+                max_tokens=512,      # Quality assessment needs more tokens for detailed analysis
                 temperature=0.0,     # Deterministic for consistent scoring
                 top_p=1.0,           # Disable nucleus sampling
                 do_sample=False,     # Greedy decoding
