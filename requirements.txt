@@ -6,9 +6,10 @@ python-dotenv==1.0.0
 jsonschema==4.20.0
 
 # vLLM for local GPU inference (REQUIRED)
-vllm==0.6.3
-# Note: flash-attn must be installed separately with: pip install flash-attn --no-build-isolation
-# flash-attn==2.6.3  # Install manually with --no-build-isolation flag
+# Use 0.6.3+ for better dependency management (avoids pyairports issues)
+vllm>=0.6.3
+# Note: flash-attn is OPTIONAL - provides 2-3x speedup but takes 10+ min to compile
+# flash-attn  # Install manually with: pip install flash-attn --no-build-isolation
 transformers>=4.45.0
 torch>=2.1.0
 pyngrok==7.0.1  # For SageMaker testing with public URLs
