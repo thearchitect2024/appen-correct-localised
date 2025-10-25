@@ -658,16 +658,15 @@ class AppenCorrect:
                 }
             }
         
-        # Handle very long text by truncating at sentence boundaries
-        original_text = text
-        text_was_truncated = False
-        if len(text) > 2000:  # ~500 tokens
-            text, text_was_truncated = self._truncate_long_text(text, max_chars=2000)
-        
-        # Use AI for comprehensive analysis
+        # Use AI for comprehensive analysis (auto-chunks if text > 2500 chars)
         try:
+            # Chunking happens automatically inside _comprehensive_ai_check
             ai_corrections = self._comprehensive_ai_check(text, language_override=language, use_case=use_case)
             all_corrections = ai_corrections
+            
+            # Track if text was chunked
+            was_chunked = len(text) > 2500
+            num_chunks = max(1, (len(text) + 2499) // 2500) if was_chunked else 1
         except Exception as e:
             self.logger.error(f"AI processing failed: {e}")
             return {
@@ -707,7 +706,7 @@ class AppenCorrect:
         # Prepare response
         result = {
             'status': 'success',
-            'original_text': original_text if text_was_truncated else text,
+            'original_text': text,
             'corrections': [
                 {
                     'type': c.type,
@@ -724,19 +723,20 @@ class AppenCorrect:
                 'spelling_errors': len([c for c in all_corrections if c.type == 'spelling']),
                 'grammar_errors': len([c for c in all_corrections if c.type == 'grammar']),
                 'style_suggestions': len([c for c in all_corrections if c.type == 'style']),
+                'text_length': len(text),
+                'was_chunked': was_chunked,
+                'num_chunks': num_chunks if was_chunked else None,
                 'processing_time': f"{processing_time:.3f}s",
                 'api_available': self.api_available,
                 'api_type': self.api_type,
                 'ai_first_mode': True,
-                'detected_language': self.detect_language(text) if len(text) >= 10 else None,
-                'text_truncated': text_was_truncated,
-                'original_length': len(original_text) if text_was_truncated else len(text),
-                'processed_length': len(text) if text_was_truncated else None
+                'detected_language': self.detect_language(text) if len(text) >= 10 else None
             }
         }
         
-        if text_was_truncated:
-            result['warning'] = f'Text was truncated from {len(original_text)} to {len(text)} characters to fit context window. Only first portion was analyzed.'
+        # Add chunking info message if text was split
+        if was_chunked:
+            result['info'] = f'Text was automatically split into {num_chunks} chunks and processed in parallel for optimal performance.'
         
         return result
     
@@ -944,9 +944,245 @@ If no spelling errors: {"corrected_text": "[original text]", "corrections": []}"
             self.logger.error(f"Spelling-only AI check failed: {e}")
             return []
 
+    def _split_sentences(self, text: str) -> List[str]:
+        """
+        Split text into sentences for chunking.
+        
+        Args:
+            text: Input text
+            
+        Returns:
+            List of sentences
+        """
+        import re
+        
+        # Split on sentence boundaries (. ! ?)
+        # Keep the delimiter with the sentence
+        sentences = re.split(r'([.!?]+\s+)', text)
+        
+        # Recombine sentences with their delimiters
+        result = []
+        for i in range(0, len(sentences)-1, 2):
+            sentence = sentences[i]
+            if i+1 < len(sentences):
+                sentence += sentences[i+1]
+            if sentence.strip():
+                result.append(sentence)
+        
+        # Add last sentence if no delimiter
+        if sentences and not sentences[-1].endswith(('.', '!', '?')):
+            result.append(sentences[-1])
+        
+        return result if result else [text]
+
+    def _chunk_text(self, text: str, max_chunk_size: int = 2500) -> List[tuple[str, int]]:
+        """
+        Split text into chunks at natural boundaries (paragraphs > sentences > words).
+        
+        Args:
+            text: Input text to chunk
+            max_chunk_size: Maximum characters per chunk
+            
+        Returns:
+            List of (chunk_text, start_position) tuples
+        """
+        if len(text) <= max_chunk_size:
+            return [(text, 0)]
+        
+        chunks = []
+        current_pos = 0
+        
+        # First try splitting by paragraphs
+        paragraphs = text.split('\n\n')
+        current_chunk = ""
+        chunk_start_pos = 0
+        
+        for para in paragraphs:
+            para_with_breaks = para + '\n\n'
+            
+            if len(current_chunk) + len(para_with_breaks) <= max_chunk_size:
+                current_chunk += para_with_breaks
+            else:
+                # Save current chunk if not empty
+                if current_chunk.strip():
+                    chunks.append((current_chunk.strip(), chunk_start_pos))
+                    chunk_start_pos = current_pos
+                
+                # If single paragraph exceeds max size, split by sentences
+                if len(para) > max_chunk_size:
+                    sentences = self._split_sentences(para)
+                    temp_chunk = ""
+                    temp_start = current_pos
+                    
+                    for sentence in sentences:
+                        if len(temp_chunk) + len(sentence) <= max_chunk_size:
+                            temp_chunk += sentence
+                        else:
+                            if temp_chunk.strip():
+                                chunks.append((temp_chunk.strip(), temp_start))
+                                temp_start = current_pos + len(temp_chunk)
+                            temp_chunk = sentence
+                    
+                    if temp_chunk.strip():
+                        current_chunk = temp_chunk
+                        chunk_start_pos = temp_start
+                    else:
+                        current_chunk = ""
+                        chunk_start_pos = current_pos + len(para)
+                else:
+                    current_chunk = para_with_breaks
+                    chunk_start_pos = current_pos
+            
+            current_pos += len(para_with_breaks)
+        
+        # Add final chunk
+        if current_chunk.strip():
+            chunks.append((current_chunk.strip(), chunk_start_pos))
+        
+        return chunks if chunks else [(text, 0)]
+
+    def _process_chunks_parallel(self, chunks: List[tuple[str, int]], 
+                                 language_override: Optional[str] = None,
+                                 use_case: Optional[str] = None) -> List[tuple[List[Correction], str, int]]:
+        """
+        Process text chunks in parallel using ThreadPoolExecutor.
+        
+        Args:
+            chunks: List of (chunk_text, start_position) tuples
+            language_override: Optional language override
+            use_case: Optional use case for custom instructions
+            
+        Returns:
+            List of (corrections, corrected_text, start_position) tuples
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
+        def process_single_chunk(chunk_text: str, start_pos: int):
+            """Process a single chunk"""
+            try:
+                # Call the main AI check logic (without recursion)
+                corrections = self._comprehensive_ai_check_single(chunk_text, language_override, use_case)
+                
+                # Get corrected text from last processed result
+                corrected_text = getattr(self, '_last_corrected_text', chunk_text) or chunk_text
+                
+                return (corrections, corrected_text, start_pos)
+            except Exception as e:
+                self.logger.error(f"Error processing chunk at position {start_pos}: {e}")
+                return ([], chunk_text, start_pos)
+        
+        # Process chunks in parallel (max 3 workers to avoid overwhelming vLLM)
+        results = []
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            future_to_chunk = {
+                executor.submit(process_single_chunk, chunk_text, start_pos): (chunk_text, start_pos)
+                for chunk_text, start_pos in chunks
+            }
+            
+            for future in as_completed(future_to_chunk):
+                chunk_text, start_pos = future_to_chunk[future]
+                try:
+                    result = future.result()
+                    results.append(result)
+                except Exception as e:
+                    self.logger.error(f"Chunk processing failed: {e}")
+                    results.append(([], chunk_text, start_pos))
+        
+        # Sort results by start position to maintain order
+        results.sort(key=lambda x: x[2])
+        
+        return results
+
+    def _merge_chunk_corrections(self, chunk_results: List[tuple[List[Correction], str, int]], 
+                                 original_text: str) -> tuple[List[Correction], str]:
+        """
+        Merge corrections from multiple chunks, adjusting positions.
+        
+        Args:
+            chunk_results: List of (corrections, corrected_text, start_position) tuples
+            original_text: Full original text
+            
+        Returns:
+            (merged_corrections, full_corrected_text)
+        """
+        all_corrections = []
+        corrected_parts = []
+        
+        for corrections, corrected_text, start_pos in chunk_results:
+            # Adjust correction positions to full text coordinates
+            for correction in corrections:
+                adjusted_correction = Correction(
+                    original=correction.original,
+                    correction=correction.correction,
+                    type=correction.type,
+                    position=[
+                        correction.position[0] + start_pos,
+                        correction.position[1] + start_pos
+                    ],
+                    confidence=correction.confidence,
+                    source=correction.source
+                )
+                all_corrections.append(adjusted_correction)
+            
+            corrected_parts.append(corrected_text)
+        
+        # Reconstruct full corrected text
+        full_corrected_text = ' '.join(corrected_parts)
+        
+        # Deduplicate corrections (in case of overlaps at chunk boundaries)
+        seen = set()
+        unique_corrections = []
+        for corr in all_corrections:
+            key = (corr.original, corr.position[0], corr.position[1])
+            if key not in seen:
+                seen.add(key)
+                unique_corrections.append(corr)
+        
+        # Sort by position
+        unique_corrections.sort(key=lambda c: c.position[0])
+        
+        return unique_corrections, full_corrected_text
+
     def _comprehensive_ai_check(self, text: str, language_override: Optional[str] = None, use_case: Optional[str] = None) -> List[Correction]:
         """
-        Send text to AI (OpenAI or Gemini) for comprehensive spelling, grammar, and style checking.
+        Comprehensive AI check with automatic chunking for long texts.
+        
+        Args:
+            text: Input text to analyze
+            language_override: Override language detection
+            use_case: Apply custom instructions
+            
+        Returns:
+            List of corrections
+        """
+        # Check if text needs chunking (> 2500 chars)
+        if len(text) > 2500:
+            self.logger.info(f"Text length ({len(text)} chars) exceeds chunk size, processing in parallel chunks")
+            
+            # Split into chunks
+            chunks = self._chunk_text(text, max_chunk_size=2500)
+            self.logger.info(f"Split into {len(chunks)} chunks")
+            
+            # Process chunks in parallel
+            chunk_results = self._process_chunks_parallel(chunks, language_override, use_case)
+            
+            # Merge results
+            corrections, corrected_text = self._merge_chunk_corrections(chunk_results, text)
+            
+            # Store corrected text for process_text to use
+            self._last_corrected_text = corrected_text
+            
+            self.logger.info(f"Merged {len(corrections)} corrections from {len(chunks)} chunks")
+            return corrections
+        else:
+            # Text is short enough, process normally
+            return self._comprehensive_ai_check_single(text, language_override, use_case)
+
+    def _comprehensive_ai_check_single(self, text: str, language_override: Optional[str] = None, 
+                                      use_case: Optional[str] = None) -> List[Correction]:
+        """
+        Single chunk AI check (internal method).
+        Send text to AI (vLLM) for comprehensive spelling, grammar, and style checking.
         
         Args:
             text: Input text to analyze
